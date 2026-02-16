@@ -287,7 +287,19 @@ def convert_payload_openai_to_ollama(openai_payload: dict) -> dict:
     Returns:
         dict: A modified payload compatible with the Ollama API.
     """
+    # Temporarily remove mcp_clients from metadata to avoid pickle errors during deepcopy
+    # MCP clients contain async sessions and Future objects that cannot be serialized
+    mcp_clients_backup = None
+    if "metadata" in openai_payload and "mcp_clients" in openai_payload.get("metadata", {}):
+        mcp_clients_backup = openai_payload["metadata"].pop("mcp_clients")
+    
     openai_payload = copy.deepcopy(openai_payload)
+    
+    # Restore mcp_clients after deepcopy
+    if mcp_clients_backup is not None:
+        if "metadata" not in openai_payload:
+            openai_payload["metadata"] = {}
+        openai_payload["metadata"]["mcp_clients"] = mcp_clients_backup
     ollama_payload = {}
 
     # Mapping basic model and message details

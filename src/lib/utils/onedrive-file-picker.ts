@@ -1,5 +1,42 @@
 import type { PopupRequest, PublicClientApplication } from '@azure/msal-browser';
 import { v4 as uuidv4 } from 'uuid';
+import { WEBUI_BASE_URL } from '$lib/constants';
+
+// Get MIME type from file extension
+function getMimeType(filename: string): string {
+	const ext = filename.split('.').pop()?.toLowerCase() || '';
+	const mimeMap: Record<string, string> = {
+		pdf: 'application/pdf',
+		xls: 'application/vnd.ms-excel',
+		xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+		ods: 'application/vnd.oasis.opendocument.spreadsheet',
+		doc: 'application/msword',
+		docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+		odt: 'application/vnd.oasis.opendocument.text',
+		ppt: 'application/vnd.ms-powerpoint',
+		pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+		odp: 'application/vnd.oasis.opendocument.presentation',
+		html: 'text/html',
+		htm: 'text/html',
+		epub: 'application/epub+zip',
+		png: 'image/png',
+		jpeg: 'image/jpeg',
+		jpg: 'image/jpeg',
+		webp: 'image/webp',
+		gif: 'image/gif',
+		tiff: 'image/tiff',
+		tif: 'image/tiff',
+		txt: 'text/plain',
+		csv: 'text/csv',
+		json: 'application/json',
+		xml: 'application/xml',
+		zip: 'application/zip',
+		mp4: 'video/mp4',
+		mp3: 'audio/mpeg',
+		wav: 'audio/wav'
+	};
+	return mimeMap[ext] || 'application/octet-stream';
+}
 
 class OneDriveConfig {
 	private static instance: OneDriveConfig;
@@ -32,7 +69,7 @@ class OneDriveConfig {
 	}
 
 	private async getCredentials(): Promise<void> {
-		const response = await fetch('/api/config', {
+		const response = await fetch(`${WEBUI_BASE_URL}/api/config`, {
 			headers: {
 				'Content-Type': 'application/json'
 			},
@@ -437,7 +474,7 @@ export async function openOneDrivePicker(
 // Pick and download file from OneDrive
 export async function pickAndDownloadFile(
 	authorityType?: 'personal' | 'organizations'
-): Promise<{ blob: Blob; name: string } | null> {
+): Promise<{ blob: Blob; name: string; mimeType: string } | null> {
 	const pickerResult = await openOneDrivePicker(authorityType);
 
 	if (!pickerResult || !pickerResult.items || pickerResult.items.length === 0) {
@@ -446,8 +483,9 @@ export async function pickAndDownloadFile(
 
 	const selectedFile = pickerResult.items[0];
 	const blob = await downloadOneDriveFile(selectedFile, authorityType);
+	const mimeType = getMimeType(selectedFile.name);
 
-	return { blob, name: selectedFile.name };
+	return { blob, name: selectedFile.name, mimeType };
 }
 
 export { downloadOneDriveFile };

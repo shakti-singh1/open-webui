@@ -1470,21 +1470,21 @@
 												);
 											}
 										}}
-										uploadOneDriveHandler={async (authorityType) => {
-											try {
-												const fileData = await pickAndDownloadFile(authorityType);
-												if (fileData) {
-													const file = new File([fileData.blob], fileData.name, {
-														type: fileData.blob.type || 'application/octet-stream'
-													});
-													await uploadFileHandler(file);
-												} else {
-													console.log('No file was selected from OneDrive');
-												}
-											} catch (error) {
-												console.error('OneDrive Error:', error);
-											}
-										}}
+ 									uploadOneDriveHandler={async (authorityType) => {
+ 										try {
+ 											const fileData = await pickAndDownloadFile(authorityType);
+ 											if (fileData) {
+ 												const file = new File([fileData.blob], fileData.name, {
+ 													type: fileData.mimeType
+ 												});
+ 												await uploadFileHandler(file);
+ 											} else {
+ 												console.log('No file was selected from OneDrive');
+ 											}
+ 										} catch (error) {
+ 											console.error('OneDrive Error:', error);
+ 										}
+ 									}}
 										{onUpload}
 										onClose={async () => {
 											await tick();
