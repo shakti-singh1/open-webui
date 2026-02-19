@@ -37,6 +37,7 @@ from open_webui.models.channels import Channels, ChannelMember, Channel
 from open_webui.models.messages import Messages, Message
 from open_webui.models.groups import Groups
 from open_webui.utils.sanitize import sanitize_code
+from open_webui.storage.provider import Storage
 
 log = logging.getLogger(__name__)
 
@@ -1954,4 +1955,186 @@ async def view_skill(
         )
     except Exception as e:
         log.exception(f"view_skill error: {e}")
+        return json.dumps({"error": str(e)})
+
+
+# =============================================================================
+# DATA ANALYSIS TOOLS
+# =============================================================================
+
+
+async def analyze_data(
+    query: str,
+    __request__: Request = None,
+    __user__: dict = None,
+    __model__: dict = None,
+    __model_knowledge__: list[dict] = None,
+    __metadata__: dict = None,
+) -> str:
+    """
+    Analyze data from uploaded CSV or Excel files using natural language and pandas.
+    Use this tool for any questions related to data in CSV or Excel files.
+    This tool should be used whenever the user asks a question about the content of attached CSV or Excel files.
+
+    :param query: The natural language question or request about the data
+    :return: The analysis result (textual answer)
+    """
+    if __request__ is None:
+        return json.dumps({"error": "Request context not available"})
+
+    try:
+        import pandas as pd
+        from open_webui.models.files import Files
+        import os
+
+        # 1. Collect file IDs from both __model_knowledge__ and __metadata__["files"]
+        file_ids = set()
+        
+        # Add files from model knowledge
+        if __model_knowledge__:
+            for item in __model_knowledge__:
+                if item.get("type") == "file" and item.get("id"):
+                    file_ids.add(item.get("id"))
+        
+        # Add files from metadata (chat attachments)
+        metadata_files = __metadata__.get("files", []) if __metadata__ else []
+        for item in metadata_files:
+            if item.get("type") == "file" and item.get("id"):
+                file_ids.add(item.get("id"))
+        
+        if not file_ids:
+            return json.dumps({"error": "No data files available for analysis."})
+
+        # 2. Load all CSV/Excel files with detailed metadata
+        dfs = []
+        dfs_info = []
+        
+        for file_id in file_ids:
+            file = Files.get_file_by_id(file_id)
+            if not file:
+                continue
+                
+            file_ext = file.filename.split(".")[-1].lower()
+            content_type = file.meta.get("content_type") if file.meta else None
+
+            # Check if it's a CSV or Excel file
+            if file_ext in ["csv", "xls", "xlsx"] or content_type in [
+                "text/csv",
+                "application/csv",
+                "application/vnd.ms-excel",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ]:
+                # Get local file path from Storage
+                file_path = Storage.get_file(file.path)
+
+                if not os.path.exists(file_path):
+                    log.warning(f"File not found: {file_path}")
+                    continue
+
+                try:
+                    if file_ext == "csv":
+                        df = pd.read_csv(file_path)
+                    else:
+                        df = pd.read_excel(file_path)
+                    
+                    dfs.append(df)
+                    dfs_info.append({
+                        "index": len(dfs) - 1,
+                        "filename": file.filename,
+                        "rows": len(df),
+                        "columns": df.columns.tolist(),
+                        "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
+                        "sample": df.head(3).to_dict()
+                    })
+                except Exception as e:
+                    log.error(f"Error loading file {file.filename}: {e}")
+
+        if not dfs:
+            return json.dumps(
+                {"error": "No CSV or Excel files found in the attached files."}
+            )
+
+        # 3. Build a detailed summary for the LLM with file selection guidance
+        summary = "Available DataFrames:\n\n"
+        for info in dfs_info:
+            summary += f"dfs[{info['index']}] - {info['filename']}:\n"
+            summary += f"  - Rows: {info['rows']}\n"
+            summary += f"  - Columns ({len(info['columns'])}): {', '.join(info['columns'])}\n"
+            summary += f"  - Data types: {info['dtypes']}\n"
+            # Limit sample size in prompt
+            sample_df = pd.DataFrame(info['sample'])
+            summary += f"  - Sample data (first 3 rows):\n{sample_df.to_string(index=False)}\n\n"
+
+        # 4. Prompt LLM to generate pandas code with file selection logic
+        prompt = f"""You are a Python data analyst expert. You have access to multiple pandas DataFrames in a list called `dfs`.
+
+{summary}
+
+User Question: {query}
+
+Instructions:
+1. Analyze which DataFrame(s) are relevant to answer the user's question.
+2. You can use one or multiple DataFrames as needed.
+3. If multiple files are needed, you can combine them (e.g., using pd.concat, pd.merge, or other pandas operations).
+4. Write Python code to compute the answer using pandas.
+5. The `dfs` list and `pd` (pandas) are already imported and available.
+6. DO NOT use `print()`. Instead, assign the final textual answer or formatted result to a variable named `result`.
+7. If the answer is a table, format it as a markdown table string and assign to `result`.
+8. If the answer is a number or simple value, convert it to a string and assign to `result`.
+9. Keep the code concise and efficient.
+10. Return ONLY the Python code without any markdown formatting, backticks, or explanations.
+
+Python Code:"""
+
+        payload = {
+            "model": __model__["id"],
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+        }
+
+        # Call LLM to generate code
+        from open_webui.utils.chat import generate_chat_completion
+        from open_webui.models.users import UserModel
+        
+        # Convert __user__ dict to UserModel if needed
+        user_obj = UserModel(**__user__) if isinstance(__user__, dict) else __user__
+
+        response = await generate_chat_completion(__request__, payload, user_obj)
+        
+        content = ""
+        if isinstance(response, dict):
+            content = response["choices"][0]["message"]["content"]
+        elif hasattr(response, "body_iterator"):
+            async for chunk in response.body_iterator:
+                data = json.loads(chunk.decode("utf-8", "replace"))
+                content += data["choices"][0]["message"]["content"]
+        
+        if not content:
+            return json.dumps({"error": "Failed to generate analysis code."})
+
+        # Sanitize the generated code
+        code = sanitize_code(content)
+
+        # 4. Execute the code safely
+        # We use a restricted environment as much as possible, though pandas needs quite a bit of access.
+        # Since this replaces pandasai which also used exec, we follow that pattern but keep it minimal.
+        exec_globals = {"pd": pd, "dfs": dfs}
+        exec_locals = {}
+        
+        try:
+            # We use a wrapper to avoid issues with some pandas operations in exec
+            exec(code, exec_globals, exec_locals)
+            
+            result = exec_locals.get("result", "No 'result' variable was set by the generated code.")
+            if result is None:
+                result = "Analysis completed, but no result was returned."
+            
+            return str(result)
+        except Exception as e:
+            log.error(f"Error executing pandas code: {e}")
+            log.debug(f"Code attempted: {code}")
+            return json.dumps({"error": f"Error during analysis execution: {str(e)}", "code": code})
+
+    except Exception as e:
+        log.exception(f"analyze_data error: {e}")
         return json.dumps({"error": str(e)})

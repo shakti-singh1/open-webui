@@ -1807,6 +1807,32 @@ def process_file(
                     "content": text_content,
                 }
             else:
+                file_ext = file.filename.split(".")[-1].lower()
+                content_type = file.meta.get("content_type")
+
+                if file_ext in ["csv", "xls", "xlsx"] or content_type in [
+                    "text/csv",
+                    "application/csv",
+                    "application/vnd.ms-excel",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ]:
+                    log.info(f"Skipping RAG for {file.filename} (CSV/Excel)")
+                    # Fresh session for the final update.
+                    with get_db() as session:
+                        Files.update_file_data_by_id(
+                            file.id,
+                            {"status": "completed"},
+                            db=session,
+                        )
+                        Files.update_file_hash_by_id(file.id, hash, db=session)
+
+                    return {
+                        "status": True,
+                        "collection_name": None,
+                        "filename": file.filename,
+                        "content": text_content,
+                    }
+
                 try:
                     # Commit any pending changes before the slow embedding step.
                     # Note: file is already a Pydantic model (not ORM), so no expunge needed.

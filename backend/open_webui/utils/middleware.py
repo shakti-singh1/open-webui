@@ -2449,6 +2449,7 @@ async def process_chat_payload(request, form_data, user, metadata, model):
                 "__skill_ids__": [
                     s.id for s in available_skills if s.id not in user_skill_ids
                 ],
+                "__model_knowledge__": model_knowledge,
             },
             features,
             model,

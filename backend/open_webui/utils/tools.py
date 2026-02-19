@@ -57,6 +57,7 @@ from open_webui.tools.builtin import (
     generate_image,
     edit_image,
     execute_code,
+    analyze_data,
     search_memories,
     add_memory,
     replace_memory_content,
@@ -440,8 +441,14 @@ def get_builtin_tools(
     # Knowledge base tools - conditional injection based on model knowledge
     # If model has attached knowledge (any type), only provide query_knowledge_files
     # Otherwise, provide all KB browsing tools
-    model_knowledge = model.get("info", {}).get("meta", {}).get("knowledge", [])
+    # Use __model_knowledge__ from extra_params if available, otherwise fall back to model object
+    model_knowledge = extra_params.get("__model_knowledge__") or model.get("info", {}).get("meta", {}).get("knowledge", [])
+    log.debug(f"get_builtin_tools: model_knowledge = {model_knowledge}")
     if is_builtin_tool_enabled("knowledge"):
+        # Always add analyze_data tool when knowledge builtin category is enabled
+        log.debug("get_builtin_tools: Adding analyze_data tool (unconditionally)")
+        builtin_functions.append(analyze_data)
+        
         if model_knowledge:
             # Model has attached knowledge - only allow semantic search within it
             builtin_functions.append(query_knowledge_files)
@@ -536,6 +543,7 @@ def get_builtin_tools(
                 "__metadata__": extra_params.get("__metadata__"),
                 "__chat_id__": extra_params.get("__chat_id__"),
                 "__message_id__": extra_params.get("__message_id__"),
+                "__model__": extra_params.get("__model__"),
                 "__model_knowledge__": model_knowledge,
             },
         )
