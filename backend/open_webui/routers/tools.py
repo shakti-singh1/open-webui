@@ -32,6 +32,7 @@ from open_webui.utils.tools import get_tool_specs
 from open_webui.utils.auth import get_admin_user, get_verified_user
 from open_webui.utils.access_control import has_access, has_permission
 from open_webui.utils.tools import get_tool_servers
+from open_webui.utils.oauth import decrypt_data
 
 from open_webui.config import CACHE_DIR, BYPASS_ADMIN_ACCESS_CONTROL
 from open_webui.constants import ERROR_MESSAGES
@@ -114,13 +115,24 @@ async def get_tools(
             auth_type = server.get("auth_type", "none")
 
             session_token = None
+            has_client_secret = False
+            
             if auth_type == "oauth_2.1":
                 splits = server_id.split(":")
                 server_id = splits[-1] if len(splits) > 1 else server_id
 
+                # Check if oauth_client_info contains client_secret
+                oauth_client_info_encrypted = server.get("info", {}).get("oauth_client_info")
+                if oauth_client_info_encrypted:
+                    try:
+                        oauth_client_info = decrypt_data(oauth_client_info_encrypted)
+                        has_client_secret = bool(oauth_client_info.get("client_secret"))
+                    except Exception as e:
+                        log.debug(f"Failed to decrypt oauth_client_info: {e}")
+
                 session_token = (
                     await request.app.state.oauth_client_manager.get_oauth_token(
-                        user.id, f"mcp:{server_id}"
+                        user.id, server_id if has_client_secret else f"mcp:{server_id}"
                     )
                 )
 
@@ -145,6 +157,7 @@ async def get_tools(
                         **(
                             {
                                 "authenticated": session_token is not None,
+                                "has_client_secret": has_client_secret,
                             }
                             if auth_type == "oauth_2.1"
                             else {}

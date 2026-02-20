@@ -56,6 +56,13 @@
 
 	let oauthClientInfo = null;
 
+	// OAuth 2.0 manual configuration fields
+	let oauthClientSecret = '';
+	let oauthAuthorizationEndpoint = '';
+	let oauthTokenEndpoint = '';
+	let oauthScope = '';
+	let oauthTokenEndpointAuthMethod = 'client_secret_post';
+
 	let enable = true;
 	let loading = false;
 
@@ -70,12 +77,31 @@
 			return;
 		}
 
+		const payload: any = {
+			url: url,
+			client_id: id
+		};
+
+		// Add optional OAuth 2.0 manual configuration fields if provided
+		if (oauthClientSecret) {
+			payload.client_secret = oauthClientSecret;
+		}
+		if (oauthAuthorizationEndpoint) {
+			payload.authorization_endpoint = oauthAuthorizationEndpoint;
+		}
+		if (oauthTokenEndpoint) {
+			payload.token_endpoint = oauthTokenEndpoint;
+		}
+		if (oauthScope) {
+			payload.scope = oauthScope;
+		}
+		if (oauthTokenEndpointAuthMethod) {
+			payload.token_endpoint_auth_method = oauthTokenEndpointAuthMethod;
+		}
+
 		const res = await registerOAuthClient(
 			localStorage.token,
-			{
-				url: url,
-				client_id: id
-			},
+			payload,
 			'mcp'
 		).catch((err) => {
 			toast.error($i18n.t('Registration failed'));
@@ -340,6 +366,11 @@
 		description = '';
 
 		oauthClientInfo = null;
+		oauthClientSecret = '';
+		oauthAuthorizationEndpoint = '';
+		oauthTokenEndpoint = '';
+		oauthScope = '';
+		oauthTokenEndpointAuthMethod = 'client_secret_post';
 
 		enable = true;
 		functionNameFilterList = '';
@@ -701,6 +732,106 @@
 								</div>
 							</div>
 						</div>
+
+						{#if auth_type === 'oauth_2.1'}
+							<div class="flex flex-col gap-2 mt-2">
+								<div class="flex flex-col w-full">
+									<label
+										for="oauth-client-secret"
+										class={`mb-0.5 text-xs ${($settings?.highContrastMode ?? false) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500'}`}
+									>
+										{$i18n.t('Client Secret')}
+										<span class="text-xs text-gray-200 dark:text-gray-800 ml-0.5"
+											>{$i18n.t('Optional')}</span
+										>
+									</label>
+									<SensitiveInput
+										id="oauth-client-secret"
+										bind:value={oauthClientSecret}
+										placeholder={$i18n.t('Enter OAuth Client Secret')}
+										required={false}
+									/>
+								</div>
+
+								<div class="flex flex-col w-full">
+									<label
+										for="oauth-authorization-endpoint"
+										class={`mb-0.5 text-xs ${($settings?.highContrastMode ?? false) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500'}`}
+									>
+										{$i18n.t('Authorization Endpoint')}
+										<span class="text-xs text-gray-200 dark:text-gray-800 ml-0.5"
+											>{$i18n.t('Optional')}</span
+										>
+									</label>
+									<input
+										id="oauth-authorization-endpoint"
+										class={`w-full text-sm bg-transparent ${($settings?.highContrastMode ?? false) ? 'placeholder:text-gray-700 dark:placeholder:text-gray-100' : 'outline-hidden placeholder:text-gray-300 dark:placeholder:text-gray-700'}`}
+										type="text"
+										bind:value={oauthAuthorizationEndpoint}
+										placeholder={$i18n.t('https://example.com/oauth2/authorize')}
+										autocomplete="off"
+									/>
+								</div>
+
+								<div class="flex flex-col w-full">
+									<label
+										for="oauth-token-endpoint"
+										class={`mb-0.5 text-xs ${($settings?.highContrastMode ?? false) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500'}`}
+									>
+										{$i18n.t('Token Endpoint')}
+										<span class="text-xs text-gray-200 dark:text-gray-800 ml-0.5"
+											>{$i18n.t('Optional')}</span
+										>
+									</label>
+									<input
+										id="oauth-token-endpoint"
+										class={`w-full text-sm bg-transparent ${($settings?.highContrastMode ?? false) ? 'placeholder:text-gray-700 dark:placeholder:text-gray-100' : 'outline-hidden placeholder:text-gray-300 dark:placeholder:text-gray-700'}`}
+										type="text"
+										bind:value={oauthTokenEndpoint}
+										placeholder={$i18n.t('https://example.com/oauth2/token')}
+										autocomplete="off"
+									/>
+								</div>
+
+								<div class="flex flex-col w-full">
+									<label
+										for="oauth-scope"
+										class={`mb-0.5 text-xs ${($settings?.highContrastMode ?? false) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500'}`}
+									>
+										{$i18n.t('Scope')}
+										<span class="text-xs text-gray-200 dark:text-gray-800 ml-0.5"
+											>{$i18n.t('Optional')}</span
+										>
+									</label>
+									<input
+										id="oauth-scope"
+										class={`w-full text-sm bg-transparent ${($settings?.highContrastMode ?? false) ? 'placeholder:text-gray-700 dark:placeholder:text-gray-100' : 'outline-hidden placeholder:text-gray-300 dark:placeholder:text-gray-700'}`}
+										type="text"
+										bind:value={oauthScope}
+										placeholder={$i18n.t('api refresh_token')}
+										autocomplete="off"
+									/>
+								</div>
+
+								<div class="flex flex-col w-full">
+									<label
+										for="oauth-token-endpoint-auth-method"
+										class={`mb-0.5 text-xs ${($settings?.highContrastMode ?? false) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500'}`}
+									>
+										{$i18n.t('Token Endpoint Auth Method')}
+									</label>
+									<select
+										id="oauth-token-endpoint-auth-method"
+										class={`w-full text-sm bg-transparent ${($settings?.highContrastMode ?? false) ? 'placeholder:text-gray-700 dark:placeholder:text-gray-100' : 'outline-hidden placeholder:text-gray-300 dark:placeholder:text-gray-700'}`}
+										bind:value={oauthTokenEndpointAuthMethod}
+									>
+										<option value="client_secret_post">{$i18n.t('Client Secret POST')}</option>
+										<option value="client_secret_basic">{$i18n.t('Client Secret Basic')}</option>
+										<option value="none">{$i18n.t('None (PKCE)')}</option>
+									</select>
+								</div>
+							</div>
+						{/if}
 
 						{#if !direct}
 							<div class="flex gap-2 mt-2">

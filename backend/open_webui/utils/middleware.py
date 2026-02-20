@@ -2334,7 +2334,7 @@ async def process_chat_payload(request, form_data, user, metadata, model):
                             server_id = splits[-1] if len(splits) > 1 else server_id
 
                             oauth_token = await request.app.state.oauth_client_manager.get_oauth_token(
-                                user.id, f"mcp:{server_id}"
+                                user.id, f"{server_id}"
                             )
 
                             if oauth_token:

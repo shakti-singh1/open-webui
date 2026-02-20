@@ -338,7 +338,8 @@
 									let parts = toolId.split(':');
 									let serverId = parts?.at(-1) ?? toolId;
 
-									const authUrl = getOAuthClientAuthorizationUrl(serverId, 'mcp');
+									const hasClientSecret = tools[toolId]?.has_client_secret ?? false;
+									const authUrl = getOAuthClientAuthorizationUrl(serverId, 'mcp', hasClientSecret);
 									window.open(authUrl, '_self', 'noopener');
 								} else {
 									tools[toolId].enabled = !tools[toolId].enabled;

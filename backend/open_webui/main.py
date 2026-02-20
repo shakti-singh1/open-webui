@@ -2243,9 +2243,12 @@ if len(app.state.config.TOOL_SERVER_CONNECTIONS) > 0:
 
                 try:
                     oauth_client_info = decrypt_data(oauth_client_info)
+                    oauth_client_info_obj = OAuthClientInformationFull(**oauth_client_info)
+                    
+                    # Use the client_id from oauth_client_info (which may be stripped of prefix)
                     app.state.oauth_client_manager.add_client(
-                        f"mcp:{server_id}",
-                        OAuthClientInformationFull(**oauth_client_info),
+                        oauth_client_info_obj.client_id,
+                        oauth_client_info_obj,
                     )
                 except Exception as e:
                     log.error(
@@ -2347,7 +2350,7 @@ async def oauth_client_authorize(
     user=Depends(get_verified_user),
 ):
     # ensure_valid_client_registration
-    client = oauth_client_manager.get_client(client_id)
+    client = oauth_client_manager.get_client(client_id) or oauth_client_manager.ensure_client_from_config(client_id)
     client_info = oauth_client_manager.get_client_info(client_id)
     if client is None or client_info is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)
