@@ -122,15 +122,7 @@ async def get_tools(
 
                 # Check if client_secret exists in the encrypted oauth_client_info
                 # If it does, it means it's a manual OAuth 2.0 configuration and we should not add the prefix
-                oauth_client_info_encrypted = server.get("info", {}).get("oauth_client_info")
-                if oauth_client_info_encrypted:
-                    try:
-                        from open_webui.utils.oauth import decrypt_data
-                        oauth_client_info = decrypt_data(oauth_client_info_encrypted)
-                        has_client_secret = bool(oauth_client_info.get("client_secret"))
-                    except Exception as e:
-                        log.debug(f"Failed to decrypt oauth_client_info for session lookup: {e}")
-
+                has_client_secret = bool(server.get("info", {}).get("oauth_client_secret"))
                 session_token = (
                     await request.app.state.oauth_client_manager.get_oauth_token(
                         user.id, server_id if has_client_secret else f"mcp:{server_id}"
