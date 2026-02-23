@@ -193,7 +193,8 @@ async def set_tool_servers_config(
         if auth_type == "oauth_2.1":
             # Remove existing OAuth clients for tool servers
             server_id = connection.get("info", {}).get("id")
-            client_key = f"{server_type}:{server_id}"
+            has_client_secret = bool(connection.get("info", {}).get("oauth_client_secret"))
+            client_key = server_id if has_client_secret else f"{server_type}:{server_id}"
 
             try:
                 request.app.state.oauth_client_manager.remove_client(client_key)
@@ -224,7 +225,7 @@ async def set_tool_servers_config(
                     # Only add "mcp:" prefix when NO client_secret is provided (OAuth 2.1 dynamic registration)
                     # For manual OAuth 2.0 with client_secret, use server_id as-is
                     # Check the decrypted oauth_client_info for client_secret (source of truth)
-                    has_client_secret = bool(oauth_client_info.get("client_secret"))
+                    has_client_secret = bool(connection.get("info", {}).get("oauth_client_secret"))
                     client_id = server_id if has_client_secret else f"{server_type}:{server_id}"
                     
                     request.app.state.oauth_client_manager.add_client(

@@ -4226,6 +4226,10 @@ async def streaming_chat_response_handler(response, ctx):
                                 *convert_output_to_messages(output, raw=True),
                             ],
                         }
+                        
+                        # Remove tools from follow-up call to prevent LLM from calling tools again
+                        # instead of using the tool results to answer the question
+                        new_form_data.pop("tools", None)
 
                         res = await generate_chat_completion(
                             request,
@@ -4410,6 +4414,10 @@ async def streaming_chat_response_handler(response, ctx):
                                     *convert_output_to_messages(output, raw=True),
                                 ],
                             }
+                            
+                            # Remove tools from follow-up call to prevent LLM from calling tools again
+                            # instead of using the code interpreter results to answer the question
+                            new_form_data.pop("tools", None)
 
                             res = await generate_chat_completion(
                                 request,
