@@ -180,7 +180,13 @@
 				info: {
 					id,
 					name,
-					description
+					description,
+					oauth_client_info: oauthClientInfo,
+					oauth_client_secret: oauthClientSecret,
+					oauth_authorization_endpoint: oauthAuthorizationEndpoint,
+					oauth_token_endpoint: oauthTokenEndpoint,
+					oauth_scope: oauthScope,
+					oauth_token_endpoint_auth_method: oauthTokenEndpointAuthMethod
 				}
 			}).catch((err) => {
 				toast.error($i18n.t('Connection failed'));
@@ -228,6 +234,14 @@
 					id = data.info.id ?? '';
 					name = data.info.name ?? '';
 					description = data.info.description ?? '';
+					oauthClientInfo = data.info.oauth_client_info ?? null;
+
+					oauthClientSecret = data.info.oauth_client_secret ?? '';
+					oauthAuthorizationEndpoint = data.info.oauth_authorization_endpoint ?? '';
+					oauthTokenEndpoint = data.info.oauth_token_endpoint ?? '';
+					oauthScope = data.info.oauth_scope ?? '';
+					oauthTokenEndpointAuthMethod =
+						data.info.oauth_token_endpoint_auth_method ?? 'client_secret_post';
 				}
 
 				if (data.config) {
@@ -261,7 +275,13 @@
 				info: {
 					id: id,
 					name: name,
-					description: description
+					description: description,
+					oauth_client_info: oauthClientInfo,
+					oauth_client_secret: oauthClientSecret,
+					oauth_authorization_endpoint: oauthAuthorizationEndpoint,
+					oauth_token_endpoint: oauthTokenEndpoint,
+					oauth_scope: oauthScope,
+					oauth_token_endpoint_auth_method: oauthTokenEndpointAuthMethod
 				}
 			}
 		]);
@@ -341,7 +361,12 @@
 				id: id,
 				name: name,
 				description: description,
-				...(oauthClientInfo ? { oauth_client_info: oauthClientInfo } : {})
+				...(oauthClientInfo ? { oauth_client_info: oauthClientInfo } : {}),
+				oauth_client_secret: oauthClientSecret,
+				oauth_authorization_endpoint: oauthAuthorizationEndpoint,
+				oauth_token_endpoint: oauthTokenEndpoint,
+				oauth_scope: oauthScope,
+				oauth_token_endpoint_auth_method: oauthTokenEndpointAuthMethod
 			}
 		};
 
@@ -395,6 +420,13 @@
 			name = connection.info?.name ?? '';
 			description = connection.info?.description ?? '';
 			oauthClientInfo = connection.info?.oauth_client_info ?? null;
+
+			oauthClientSecret = connection.info?.oauth_client_secret ?? '';
+			oauthAuthorizationEndpoint = connection.info?.oauth_authorization_endpoint ?? '';
+			oauthTokenEndpoint = connection.info?.oauth_token_endpoint ?? '';
+			oauthScope = connection.info?.oauth_scope ?? '';
+			oauthTokenEndpointAuthMethod =
+				connection.info?.oauth_token_endpoint_auth_method ?? 'client_secret_post';
 
 			enable = connection.config?.enable ?? true;
 			functionNameFilterList = connection.config?.function_name_filter_list ?? '';

@@ -32,7 +32,6 @@ from open_webui.utils.tools import get_tool_specs
 from open_webui.utils.auth import get_admin_user, get_verified_user
 from open_webui.utils.access_control import has_access, has_permission
 from open_webui.utils.tools import get_tool_servers
-from open_webui.utils.oauth import decrypt_data
 
 from open_webui.config import CACHE_DIR, BYPASS_ADMIN_ACCESS_CONTROL
 from open_webui.constants import ERROR_MESSAGES
@@ -121,14 +120,16 @@ async def get_tools(
                 splits = server_id.split(":")
                 server_id = splits[-1] if len(splits) > 1 else server_id
 
-                # Check if oauth_client_info contains client_secret
+                # Check if client_secret exists in the encrypted oauth_client_info
+                # If it does, it means it's a manual OAuth 2.0 configuration and we should not add the prefix
                 oauth_client_info_encrypted = server.get("info", {}).get("oauth_client_info")
                 if oauth_client_info_encrypted:
                     try:
+                        from open_webui.utils.oauth import decrypt_data
                         oauth_client_info = decrypt_data(oauth_client_info_encrypted)
                         has_client_secret = bool(oauth_client_info.get("client_secret"))
                     except Exception as e:
-                        log.debug(f"Failed to decrypt oauth_client_info: {e}")
+                        log.debug(f"Failed to decrypt oauth_client_info for session lookup: {e}")
 
                 session_token = (
                     await request.app.state.oauth_client_manager.get_oauth_token(

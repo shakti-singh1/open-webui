@@ -617,31 +617,31 @@ class OAuthClientManager:
                 oauth_client_info = decrypt_data(oauth_client_info_encrypted)
                 oauth_client_info_obj = OAuthClientInformationFull(**oauth_client_info)
                 
-                # Check if the stored client_id matches the requested client_id
-                # This handles both prefixed (e.g., "mcp:3MVG9mLJ...") and stripped (e.g., "3MVG9mLJ...") formats
-                if oauth_client_info_obj.client_id == client_id or oauth_client_info_obj.client_id == stripped_requested_client_id:
-                    # Determine the prefixed client_id for this connection
-                    prefixed_client_id = f"{server_type}:{stripped_requested_client_id}"
+                # Check if the server_id from the connection matches the requested client_id
+                # This handles both prefixed (e.g., "mcp:atlassian") and stripped (e.g., "atlassian") formats
+                if server_id == client_id or server_id == stripped_requested_client_id:
+                    # Only add "mcp:" prefix when NO client_secret is provided (OAuth 2.1 dynamic registration)
+                    # For manual OAuth 2.0 with client_secret, use server_id as-is
+                    has_client_secret = bool(connection.get("info", {}).get("oauth_client_secret"))
+                    determined_client_id = server_id if has_client_secret else f"{server_type}:{server_id}"
                     
-                    # CRITICAL: Check if the client is already registered with the PREFIXED version
-                    # This happens when authorization was called first, which stores the state
-                    # using the prefixed client_id. The callback may receive the stripped version
-                    # from the OAuth provider, but we MUST return the same client to match the state.
-                    if prefixed_client_id in self.clients:
-                        log.debug(f"Returning existing client registered as {prefixed_client_id}")
-                        return self.clients[prefixed_client_id]["client"]
+                    # CRITICAL: Check if the client is already registered with the determined client_id
+                    # This happens when the client was registered during app initialization or config update
+                    if determined_client_id in self.clients:
+                        log.debug(f"Returning existing client registered as {determined_client_id}")
+                        return self.clients[determined_client_id]["client"]
                     
-                    # Also check if registered with stripped version (for consistency)
-                    if stripped_requested_client_id in self.clients:
-                        log.debug(f"Returning existing client registered as {stripped_requested_client_id}")
-                        return self.clients[stripped_requested_client_id]["client"]
+                    # Also check if registered with the other format (for backward compatibility during transition)
+                    alternate_client_id = f"{server_type}:{server_id}" if has_client_secret else server_id
+                    if alternate_client_id in self.clients:
+                        log.debug(f"Returning existing client registered as {alternate_client_id}")
+                        return self.clients[alternate_client_id]["client"]
                     
-                    # Register the client with the prefixed client_id for consistency
+                    # Register the client with the determined client_id for consistency
                     # This ensures state storage/retrieval uses the same key
-                    registration_client_id = prefixed_client_id if ":" not in client_id else client_id
-                    log.debug(f"Registering new OAuth client as {registration_client_id}")
+                    log.debug(f"Registering new OAuth client as {determined_client_id}")
                     return self.add_client(
-                        registration_client_id, oauth_client_info_obj
+                        determined_client_id, oauth_client_info_obj
                     )["client"]
             except Exception as e:
                 log.error(

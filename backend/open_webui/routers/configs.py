@@ -164,6 +164,7 @@ class ToolServerConnection(BaseModel):
     headers: Optional[dict | str] = None
     key: Optional[str]
     config: Optional[dict]
+    info: Optional[dict] = None
 
     model_config = ConfigDict(extra="allow")
 
@@ -220,9 +221,13 @@ async def set_tool_servers_config(
                     oauth_client_info = decrypt_data(oauth_client_info)
                     oauth_client_info_obj = OAuthClientInformationFull(**oauth_client_info)
 
-                    # Use the client_id from oauth_client_info (which may be stripped of prefix)
+                    # Only add "mcp:" prefix when NO client_secret is provided (OAuth 2.1 dynamic registration)
+                    # For manual OAuth 2.0 with client_secret, use server_id as-is
+                    has_client_secret = bool(connection.get("info", {}).get("oauth_client_secret"))
+                    client_id = server_id if has_client_secret else f"{server_type}:{server_id}"
+                    
                     request.app.state.oauth_client_manager.add_client(
-                        oauth_client_info_obj.client_id,
+                        client_id,
                         oauth_client_info_obj,
                     )
                 except Exception as e:
