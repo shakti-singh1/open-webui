@@ -416,18 +416,34 @@ async def execute_code(
                     }
                 )
 
-            output = await __event_call__(
-                {
-                    "type": "execute:python",
-                    "data": {
-                        "id": str(uuid4()),
-                        "code": code,
-                        "session_id": (
-                            __metadata__.get("session_id") if __metadata__ else None
-                        ),
-                    },
-                }
+            pyodide_timeout = getattr(
+                __request__.app.state.config, "CODE_INTERPRETER_PYODIDE_TIMEOUT", 30
             )
+
+            try:
+                output = await asyncio.wait_for(
+                    __event_call__(
+                        {
+                            "type": "execute:python",
+                            "data": {
+                                "id": str(uuid4()),
+                                "code": code,
+                                "session_id": (
+                                    __metadata__.get("session_id") if __metadata__ else None
+                                ),
+                            },
+                        }
+                    ),
+                    timeout=pyodide_timeout,
+                )
+            except Exception as e:
+                if e.__class__.__name__ == "TimeoutError":
+                    return json.dumps(
+                        {
+                            "error": "Pyodide execution timed out. Ensure the browser session is active and increase CODE_INTERPRETER_PYODIDE_TIMEOUT if needed."
+                        }
+                    )
+                raise
 
             # Parse the output - pyodide returns dict with stdout, stderr, result
             if isinstance(output, dict):
@@ -2038,6 +2054,7 @@ async def analyze_data(
     Analyze data from uploaded CSV or Excel files using natural language and pandas.
     Use this tool for any questions related to data in CSV or Excel files.
     This tool should be used whenever the user asks a question about the content of attached CSV or Excel files.
+    Prioritize this tool for csv/excel as only this tool has access to the uploaded files.
 
     :param query: The natural language question or request about the data
     :return: The analysis result (textual answer)
