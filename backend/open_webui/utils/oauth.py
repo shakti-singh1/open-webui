@@ -623,7 +623,7 @@ class OAuthClientManager:
                     # Only add "mcp:" prefix when NO client_secret is provided (OAuth 2.1 dynamic registration)
                     # For manual OAuth 2.0 with client_secret, use server_id as-is
                     # Check the decrypted oauth_client_info for client_secret (source of truth)
-                    has_client_secret = bool(oauth_client_info.get("client_secret"))
+                    has_client_secret = bool(connection.get("info", {}).get("oauth_client_secret"))
                     determined_client_id = server_id if has_client_secret else f"{server_type}:{server_id}"
                     
                     # CRITICAL: Check if the client is already registered with the determined client_id
