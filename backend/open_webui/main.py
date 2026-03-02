@@ -2000,9 +2000,6 @@ async def get_app_config(request: Request):
     if user is None:
         onboarding = user_count == 0
 
-    print('**********************')
-    print(user)
-
     return {
         **({"onboarding": True} if onboarding else {}),
         "status": True,
@@ -2057,7 +2054,7 @@ async def get_app_config(request: Request):
                         else {}
                     ),
                 }
-                if True
+                if user is not None
                 else {}
             ),
         },
@@ -2109,11 +2106,11 @@ async def get_app_config(request: Request):
                     {
                         "active_entries": app.state.USER_COUNT,
                     }
-                    if True
+                    if user.role == "admin"
                     else {}
                 ),
             }
-            if True
+            if user is not None and (user.role in ["admin", "user"])
             else {
                 **(
                     {
