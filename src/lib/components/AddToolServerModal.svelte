@@ -62,6 +62,16 @@
 	let oauthTokenEndpoint = '';
 	let oauthScope = '';
 	let oauthTokenEndpointAuthMethod = 'client_secret_post';
+	let displayAuthType = auth_type;
+
+	const onDisplayAuthTypeChange = (value: string) => {
+	    displayAuthType = value;
+		if (value === 'oauth_2.0') {
+			auth_type = 'oauth_2.1';
+		} else {
+			auth_type = value;
+		}
+	};
 
 	let enable = true;
 	let loading = false;
@@ -431,6 +441,15 @@
 			enable = connection.config?.enable ?? true;
 			functionNameFilterList = connection.config?.function_name_filter_list ?? '';
 			accessGrants = connection.config?.access_grants ?? [];
+
+			onDisplayAuthTypeChange(auth_type === 'oauth_2.1' &&
+                (oauthClientSecret ||
+                oauthAuthorizationEndpoint ||
+                oauthTokenEndpoint ||
+                oauthScope)
+                ? 'oauth_2.0'
+                : auth_type
+            );
 		}
 	};
 
@@ -712,7 +731,8 @@
 										<select
 											id="select-bearer-or-session"
 											class={`dark:bg-gray-900 w-full text-sm bg-transparent pr-5 ${($settings?.highContrastMode ?? false) ? 'placeholder:text-gray-700 dark:placeholder:text-gray-100' : 'outline-hidden placeholder:text-gray-300 dark:placeholder:text-gray-700'}`}
-											bind:value={auth_type}
+											value={displayAuthType}
+											on:change={(e) => onDisplayAuthTypeChange(e.currentTarget.value)}
 										>
 											<option value="none">{$i18n.t('None')}</option>
 
@@ -722,6 +742,7 @@
 											{#if !direct}
 												<option value="system_oauth">{$i18n.t('OAuth')}</option>
 												{#if type === 'mcp'}
+													<option value="oauth_2.0">{$i18n.t('OAuth 2.0')}</option>
 													<option value="oauth_2.1">{$i18n.t('OAuth 2.1')}</option>
 												{/if}
 											{/if}
@@ -757,7 +778,9 @@
 											<div
 												class={`flex items-center text-xs self-center translate-y-[1px] ${($settings?.highContrastMode ?? false) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500'}`}
 											>
-												{$i18n.t('Uses OAuth 2.1 Dynamic Client Registration')}
+												{displayAuthType === 'oauth_2.0'
+													? $i18n.t('Uses OAuth 2.0 with manual endpoint configuration')
+													: $i18n.t('Uses OAuth 2.1 Dynamic Client Registration')}
 											</div>
 										{/if}
 									</div>
@@ -765,7 +788,7 @@
 							</div>
 						</div>
 
-						{#if auth_type === 'oauth_2.1'}
+						{#if displayAuthType === 'oauth_2.0'}
 							<div class="flex flex-col gap-2 mt-2">
 								<div class="flex flex-col w-full">
 									<label
