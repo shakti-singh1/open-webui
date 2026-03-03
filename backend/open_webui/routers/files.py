@@ -122,6 +122,7 @@ def has_access_to_file(
 
 def process_uploaded_file(
     request,
+    file,
     file_path,
     file_item,
     file_metadata,
@@ -130,14 +131,13 @@ def process_uploaded_file(
 ):
     def _process_handler(db_session):
         try:
-            content_type = file_item.meta.get("content_type")
-            if content_type:
+            if file.content_type:
                 stt_supported_content_types = getattr(
                     request.app.state.config, "STT_SUPPORTED_CONTENT_TYPES", []
                 )
 
                 if strict_match_mime_type(
-                    stt_supported_content_types, content_type
+                    stt_supported_content_types, file.content_type
                 ):
                     file_path_processed = Storage.get_file(file_path)
                     result = transcribe(
@@ -152,7 +152,7 @@ def process_uploaded_file(
                         user=user,
                         db=db_session,
                     )
-                elif (not content_type.startswith(("image/", "video/"))) or (
+                elif (not file.content_type.startswith(("image/", "video/"))) or (
                     request.app.state.config.CONTENT_EXTRACTION_ENGINE == "external"
                 ):
                     process_file(
@@ -163,11 +163,11 @@ def process_uploaded_file(
                     )
                 else:
                     raise Exception(
-                        f"File type {content_type} is not supported for processing"
+                        f"File type {file.content_type} is not supported for processing"
                     )
             else:
                 log.info(
-                    f"File type {content_type} is not provided, but trying to process anyway"
+                    f"File type {file.content_type} is not provided, but trying to process anyway"
                 )
                 process_file(
                     request,
@@ -314,6 +314,7 @@ def upload_file_handler(
                 background_tasks.add_task(
                     process_uploaded_file,
                     request,
+                    file,
                     file_path,
                     file_item,
                     file_metadata,
@@ -323,6 +324,7 @@ def upload_file_handler(
             else:
                 process_uploaded_file(
                     request,
+                    file,
                     file_path,
                     file_item,
                     file_metadata,
