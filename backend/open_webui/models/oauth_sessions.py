@@ -124,7 +124,9 @@ class OAuthSessionTable:
                         "user_id": user_id,
                         "provider": provider,
                         "token": self._encrypt_token(token),
-                        "expires_at": token.get("expires_at", current_time + 365 * 24 * 60 * 60),
+                        "expires_at": token.get(
+                            "expires_at", current_time + 365 * 24 * 60 * 60
+                        ),
                         "created_at": current_time,
                         "updated_at": current_time,
                     }

@@ -121,14 +121,16 @@ async def get_tools(
 
             session_token = None
             has_client_secret = False
-            
+
             if auth_type == "oauth_2.1":
                 splits = server_id.split(":")
                 server_id = splits[-1] if len(splits) > 1 else server_id
 
                 # Check if client_secret exists in the encrypted oauth_client_info
                 # If it does, it means it's a manual OAuth 2.0 configuration and we should not add the prefix
-                has_client_secret = bool(server.get("info", {}).get("oauth_client_secret"))
+                has_client_secret = bool(
+                    server.get("info", {}).get("oauth_client_secret")
+                )
                 session_token = (
                     await request.app.state.oauth_client_manager.get_oauth_token(
                         user.id, server_id if has_client_secret else f"mcp:{server_id}"
