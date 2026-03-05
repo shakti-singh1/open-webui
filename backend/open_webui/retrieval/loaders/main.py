@@ -99,80 +99,102 @@ class RobustDocxLoader:
     document might be named something other than 'word/document.xml' (e.g., 'word/document2.xml').
     It reads the _rels/.rels file to find the actual main document path.
     """
+
     def __init__(self, file_path: str):
         self.file_path = file_path
 
     def _get_main_document_path(self) -> str:
         """Extract the main document path from the _rels/.rels file."""
         try:
-            with zipfile.ZipFile(self.file_path, 'r') as docx_zip:
+            with zipfile.ZipFile(self.file_path, "r") as docx_zip:
                 # Read the relationships file
-                rels_content = docx_zip.read('_rels/.rels')
-                
+                rels_content = docx_zip.read("_rels/.rels")
+
                 # Parse XML
                 root = ET.fromstring(rels_content)
-                
+
                 # Find the main document relationship
                 # Namespace for Office Open XML
-                ns = {'rel': 'http://schemas.openxmlformats.org/package/2006/relationships'}
-                
+                ns = {
+                    "rel": "http://schemas.openxmlformats.org/package/2006/relationships"
+                }
+
                 # Look for the officeDocument relationship with exact match
                 # The correct type is: http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument
-                for relationship in root.findall('.//rel:Relationship', ns):
-                    rel_type = relationship.get('Type', '')
-                    if rel_type == 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument':
-                        target = relationship.get('Target', '')
+                for relationship in root.findall(".//rel:Relationship", ns):
+                    rel_type = relationship.get("Type", "")
+                    if (
+                        rel_type
+                        == "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"
+                    ):
+                        target = relationship.get("Target", "")
                         log.info(f"Found main document at: {target}")
                         return target
-                
+
                 # Fallback to standard path if not found
-                log.warning("Could not find main document in relationships, using default path")
-                return 'word/document.xml'
+                log.warning(
+                    "Could not find main document in relationships, using default path"
+                )
+                return "word/document.xml"
         except Exception as e:
             log.warning(f"Error reading relationships file: {e}, using default path")
-            return 'word/document.xml'
+            return "word/document.xml"
 
     def load(self) -> list[Document]:
         """Load the document by first finding the correct document path."""
         import docx2txt
-        
+
         main_doc_path = self._get_main_document_path()
-        
+
         # If it's not the standard path, we need to temporarily rename it
-        if main_doc_path != 'word/document.xml':
-            log.info(f"Non-standard document path detected: {main_doc_path}, normalizing...")
-            
+        if main_doc_path != "word/document.xml":
+            log.info(
+                f"Non-standard document path detected: {main_doc_path}, normalizing..."
+            )
+
             # Create a temporary normalized copy of the docx file
-            with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as tmp_file:
+            with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp_file:
                 tmp_path = tmp_file.name
-                
+
                 try:
                     # Copy the original zip and rename the main document
-                    with zipfile.ZipFile(self.file_path, 'r') as original_zip:
-                        with zipfile.ZipFile(tmp_path, 'w', zipfile.ZIP_DEFLATED) as new_zip:
+                    with zipfile.ZipFile(self.file_path, "r") as original_zip:
+                        with zipfile.ZipFile(
+                            tmp_path, "w", zipfile.ZIP_DEFLATED
+                        ) as new_zip:
                             for item in original_zip.infolist():
                                 data = original_zip.read(item.filename)
-                                
+
                                 # Rename the main document to the standard path
                                 if item.filename == main_doc_path:
-                                    new_zip.writestr('word/document.xml', data)
-                                    log.info(f"Renamed {main_doc_path} to word/document.xml")
+                                    new_zip.writestr("word/document.xml", data)
+                                    log.info(
+                                        f"Renamed {main_doc_path} to word/document.xml"
+                                    )
                                 # Also update the relationships file if it references the non-standard name
-                                elif item.filename == 'word/_rels/document2.xml.rels':
-                                    new_zip.writestr('word/_rels/document.xml.rels', data)
-                                elif item.filename == '_rels/.rels':
+                                elif item.filename == "word/_rels/document2.xml.rels":
+                                    new_zip.writestr(
+                                        "word/_rels/document.xml.rels", data
+                                    )
+                                elif item.filename == "_rels/.rels":
                                     # Update the main relationship to point to word/document.xml
-                                    rels_content = data.decode('utf-8')
-                                    rels_content = rels_content.replace(main_doc_path, 'word/document.xml')
-                                    new_zip.writestr(item.filename, rels_content.encode('utf-8'))
+                                    rels_content = data.decode("utf-8")
+                                    rels_content = rels_content.replace(
+                                        main_doc_path, "word/document.xml"
+                                    )
+                                    new_zip.writestr(
+                                        item.filename, rels_content.encode("utf-8")
+                                    )
                                 else:
                                     new_zip.writestr(item, data)
-                    
+
                     # Now use docx2txt on the normalized file
                     text = docx2txt.process(tmp_path)
-                    
-                    return [Document(page_content=text, metadata={"source": self.file_path})]
-                    
+
+                    return [
+                        Document(page_content=text, metadata={"source": self.file_path})
+                    ]
+
                 finally:
                     # Clean up the temporary file
                     if os.path.exists(tmp_path):
