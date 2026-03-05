@@ -2253,6 +2253,16 @@ Python Code:"""
             "model": __model__["id"],
             "messages": [{"role": "user", "content": prompt}],
             "stream": False,
+            # Pass metadata that disables native function calling for this internal sub-call.
+            # Without this, the middleware inherits the outer request's "function_calling: native"
+            # setting and injects builtin tools into the payload. AWS Bedrock then raises a
+            # ValidationException because the request includes toolConfig but the fresh messages
+            # list doesn't pair properly with the Bedrock ConverseStream toolConfig requirements.
+            "metadata": {
+                "params": {
+                    "function_calling": "disabled",
+                }
+            },
         }
 
         # Call LLM to generate code

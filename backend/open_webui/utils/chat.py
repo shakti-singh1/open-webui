@@ -170,10 +170,15 @@ async def generate_chat_completion(
         if "metadata" not in form_data:
             form_data["metadata"] = request.state.metadata
         else:
-            form_data["metadata"] = {
-                **form_data["metadata"],
-                **request.state.metadata,
-            }
+            # Merge request.state.metadata into caller-provided metadata, but let the
+            # caller's values take precedence for nested dicts (e.g. "params") so that
+            # internal sub-calls (like analyze_data generating code) can override settings
+            # such as "function_calling" without being overwritten by the outer request context.
+            merged = {**form_data["metadata"], **request.state.metadata}
+            for key, val in form_data["metadata"].items():
+                if isinstance(val, dict) and isinstance(merged.get(key), dict):
+                    merged[key] = {**merged[key], **val}
+            form_data["metadata"] = merged
 
     if getattr(request.state, "direct", False) and hasattr(request.state, "model"):
         models = {
