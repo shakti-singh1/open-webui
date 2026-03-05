@@ -5,6 +5,7 @@ node_modules
 /build
 /.svelte-kit
 /package
+package-lock.json
 .env
 .env.*
 !.env.example
@@ -15,6 +16,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 .nvmrc
+.junie
 CLAUDE.md
 # C extensions
 *.so
