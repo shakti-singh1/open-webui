@@ -2332,9 +2332,15 @@ async def process_chat_payload(request, form_data, user, metadata, model):
                         try:
                             splits = server_id.split(":")
                             server_id = splits[-1] if len(splits) > 1 else server_id
+                            has_client_secret = bool(
+                                mcp_server_connection.get("info", {}).get(
+                                    "oauth_client_secret"
+                                )
+                            )
 
                             oauth_token = await request.app.state.oauth_client_manager.get_oauth_token(
-                                user.id, f"mcp:{server_id}"
+                                user.id,
+                                server_id if has_client_secret else f"mcp:{server_id}",
                             )
 
                             if oauth_token:
@@ -4226,6 +4232,10 @@ async def streaming_chat_response_handler(response, ctx):
                             ],
                         }
 
+                        # Remove tools from follow-up call to prevent LLM from calling tools again
+                        # instead of using the tool results to answer the question
+                        new_form_data.pop("tools", None)
+
                         res = await generate_chat_completion(
                             request,
                             new_form_data,
@@ -4273,7 +4283,8 @@ async def streaming_chat_response_handler(response, ctx):
                                 code = sanitize_code(code)
 
                                 if CODE_INTERPRETER_BLOCKED_MODULES:
-                                    blocking_code = textwrap.dedent(f"""
+                                    blocking_code = textwrap.dedent(
+                                        f"""
                                         import builtins
     
                                         BLOCKED_MODULES = {CODE_INTERPRETER_BLOCKED_MODULES}
@@ -4289,7 +4300,8 @@ async def streaming_chat_response_handler(response, ctx):
                                             return _real_import(name, globals, locals, fromlist, level)
     
                                         builtins.__import__ = restricted_import
-                                    """)
+                                    """
+                                    )
                                     code = blocking_code + "\n" + code
 
                                 if (
@@ -4409,6 +4421,10 @@ async def streaming_chat_response_handler(response, ctx):
                                     *convert_output_to_messages(output, raw=True),
                                 ],
                             }
+
+                            # Remove tools from follow-up call to prevent LLM from calling tools again
+                            # instead of using the code interpreter results to answer the question
+                            new_form_data.pop("tools", None)
 
                             res = await generate_chat_completion(
                                 request,

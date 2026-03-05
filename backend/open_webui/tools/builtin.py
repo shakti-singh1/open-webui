@@ -385,7 +385,8 @@ async def execute_code(
         if CODE_INTERPRETER_BLOCKED_MODULES:
             import textwrap
 
-            blocking_code = textwrap.dedent(f"""
+            blocking_code = textwrap.dedent(
+                f"""
                 import builtins
 
                 BLOCKED_MODULES = {CODE_INTERPRETER_BLOCKED_MODULES}
@@ -401,7 +402,8 @@ async def execute_code(
                     return _real_import(name, globals, locals, fromlist, level)
 
                 builtins.__import__ = restricted_import
-                """)
+                """
+            )
             code = blocking_code + "\n" + code
 
         engine = getattr(
@@ -2069,31 +2071,31 @@ async def analyze_data(
 
         # 1. Collect file IDs from both __model_knowledge__ and __metadata__["files"]
         file_ids = set()
-        
+
         # Add files from model knowledge
         if __model_knowledge__:
             for item in __model_knowledge__:
                 if item.get("type") == "file" and item.get("id"):
                     file_ids.add(item.get("id"))
-        
+
         # Add files from metadata (chat attachments)
         metadata_files = __metadata__.get("files", []) if __metadata__ else []
         for item in metadata_files:
             if item.get("type") == "file" and item.get("id"):
                 file_ids.add(item.get("id"))
-        
+
         if not file_ids:
             return json.dumps({"error": "No data files available for analysis."})
 
         # 2. Load all CSV/Excel files with detailed metadata
         dfs = []
         dfs_info = []
-        
+
         for file_id in file_ids:
             file = Files.get_file_by_id(file_id)
             if not file:
                 continue
-                
+
             file_ext = file.filename.split(".")[-1].lower()
             content_type = file.meta.get("content_type") if file.meta else None
 
@@ -2116,16 +2118,20 @@ async def analyze_data(
                         df = pd.read_csv(file_path)
                     else:
                         df = pd.read_excel(file_path)
-                    
+
                     dfs.append(df)
-                    dfs_info.append({
-                        "index": len(dfs) - 1,
-                        "filename": file.filename,
-                        "rows": len(df),
-                        "columns": df.columns.tolist(),
-                        "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
-                        "sample": df.head(3).to_dict()
-                    })
+                    dfs_info.append(
+                        {
+                            "index": len(dfs) - 1,
+                            "filename": file.filename,
+                            "rows": len(df),
+                            "columns": df.columns.tolist(),
+                            "dtypes": {
+                                col: str(dtype) for col, dtype in df.dtypes.items()
+                            },
+                            "sample": df.head(3).to_dict(),
+                        }
+                    )
                 except Exception as e:
                     log.error(f"Error loading file {file.filename}: {e}")
 
@@ -2139,10 +2145,12 @@ async def analyze_data(
         for info in dfs_info:
             summary += f"dfs[{info['index']}] - {info['filename']}:\n"
             summary += f"  - Rows: {info['rows']}\n"
-            summary += f"  - Columns ({len(info['columns'])}): {', '.join(info['columns'])}\n"
+            summary += (
+                f"  - Columns ({len(info['columns'])}): {', '.join(info['columns'])}\n"
+            )
             summary += f"  - Data types: {info['dtypes']}\n"
             # Limit sample size in prompt
-            sample_df = pd.DataFrame(info['sample'])
+            sample_df = pd.DataFrame(info["sample"])
             summary += f"  - Sample data (first 3 rows):\n{sample_df.to_string(index=False)}\n\n"
 
         # 4. Prompt LLM to generate pandas code with file selection logic
@@ -2175,12 +2183,12 @@ Python Code:"""
         # Call LLM to generate code
         from open_webui.utils.chat import generate_chat_completion
         from open_webui.models.users import UserModel
-        
+
         # Convert __user__ dict to UserModel if needed
         user_obj = UserModel(**__user__) if isinstance(__user__, dict) else __user__
 
         response = await generate_chat_completion(__request__, payload, user_obj)
-        
+
         content = ""
         if isinstance(response, dict):
             content = response["choices"][0]["message"]["content"]
@@ -2188,7 +2196,7 @@ Python Code:"""
             async for chunk in response.body_iterator:
                 data = json.loads(chunk.decode("utf-8", "replace"))
                 content += data["choices"][0]["message"]["content"]
-        
+
         if not content:
             return json.dumps({"error": "Failed to generate analysis code."})
 
@@ -2200,20 +2208,24 @@ Python Code:"""
         # Since this replaces pandasai which also used exec, we follow that pattern but keep it minimal.
         exec_globals = {"pd": pd, "dfs": dfs}
         exec_locals = {}
-        
+
         try:
             # We use a wrapper to avoid issues with some pandas operations in exec
             exec(code, exec_globals, exec_locals)
-            
-            result = exec_locals.get("result", "No 'result' variable was set by the generated code.")
+
+            result = exec_locals.get(
+                "result", "No 'result' variable was set by the generated code."
+            )
             if result is None:
                 result = "Analysis completed, but no result was returned."
-            
+
             return str(result)
         except Exception as e:
             log.error(f"Error executing pandas code: {e}")
             log.debug(f"Code attempted: {code}")
-            return json.dumps({"error": f"Error during analysis execution: {str(e)}", "code": code})
+            return json.dumps(
+                {"error": f"Error during analysis execution: {str(e)}", "code": code}
+            )
 
     except Exception as e:
         log.exception(f"analyze_data error: {e}")

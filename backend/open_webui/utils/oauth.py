@@ -342,6 +342,7 @@ async def get_oauth_client_info_with_dynamic_client_registration(
     client_id: str,
     oauth_server_url: str,
     oauth_server_key: Optional[str] = None,
+    manual_config: Optional[dict] = None,
 ) -> OAuthClientInformationFull:
     try:
         oauth_server_metadata = None
@@ -351,6 +352,103 @@ async def get_oauth_client_info_with_dynamic_client_registration(
             str(request.app.state.config.WEBUI_URL or request.base_url)
         ).rstrip("/")
 
+        # If manual configuration is provided, use it directly (OAuth 2.0 with PKCE support)
+        if manual_config:
+            log.info(f"Using manual OAuth 2.0 configuration for client_id: {client_id}")
+
+            # Optionally fetch server metadata for validation
+            try:
+                discovery_urls = await get_discovery_urls(oauth_server_url)
+                for url in discovery_urls:
+                    async with aiohttp.ClientSession(trust_env=True) as session:
+                        async with session.get(
+                            url, ssl=AIOHTTP_CLIENT_SESSION_SSL
+                        ) as oauth_server_metadata_response:
+                            if oauth_server_metadata_response.status == 200:
+                                try:
+                                    oauth_server_metadata = (
+                                        OAuthMetadata.model_validate(
+                                            await oauth_server_metadata_response.json()
+                                        )
+                                    )
+                                    oauth_server_metadata_url = url
+                                    break
+                                except Exception as e:
+                                    log.debug(
+                                        f"Error parsing OAuth metadata from {url}: {e}"
+                                    )
+                                    continue
+            except Exception as e:
+                log.debug(f"Could not fetch OAuth server metadata: {e}")
+
+            # Build OAuth client info from manual configuration
+            # Strip the prefix (e.g., "mcp:") from client_id for OAuth provider
+            stripped_client_id = (
+                client_id.split(":", 1)[-1] if ":" in client_id else client_id
+            )
+            oauth_client_info_dict = {
+                "client_id": stripped_client_id,
+                "client_secret": manual_config.get("client_secret"),
+                "client_name": manual_config.get("client_name") or "Open WebUI",
+                "redirect_uris": [
+                    f"{redirect_base_url}/oauth/clients/{client_id}/callback"
+                ],
+                "grant_types": ["authorization_code", "refresh_token"],
+                "response_types": ["code"],
+                "scope": manual_config.get("scope"),
+                "token_endpoint_auth_method": manual_config.get(
+                    "token_endpoint_auth_method"
+                )
+                or "client_secret_post",
+                "issuer": oauth_server_metadata_url,
+            }
+
+            # Create custom server metadata if endpoints are provided
+            if manual_config.get("authorization_endpoint") or manual_config.get(
+                "token_endpoint"
+            ):
+                custom_metadata = {
+                    "authorization_endpoint": manual_config.get(
+                        "authorization_endpoint"
+                    ),
+                    "token_endpoint": manual_config.get("token_endpoint"),
+                }
+
+                # If we fetched server metadata, merge it with custom endpoints
+                if oauth_server_metadata:
+                    oauth_server_metadata_dict = oauth_server_metadata.model_dump(
+                        mode="json"
+                    )
+                    oauth_server_metadata_dict.update(
+                        {k: v for k, v in custom_metadata.items() if v}
+                    )
+                    oauth_server_metadata = OAuthMetadata.model_validate(
+                        oauth_server_metadata_dict
+                    )
+                else:
+                    # Create minimal server metadata with provided endpoints
+                    oauth_server_metadata = OAuthMetadata.model_validate(
+                        custom_metadata
+                    )
+
+                oauth_client_info_dict["server_metadata"] = oauth_server_metadata
+            elif oauth_server_metadata:
+                oauth_client_info_dict["server_metadata"] = oauth_server_metadata
+
+            # Clean up None values
+            oauth_client_info_dict = {
+                k: v for k, v in oauth_client_info_dict.items() if v is not None
+            }
+
+            oauth_client_info = OAuthClientInformationFull.model_validate(
+                oauth_client_info_dict
+            )
+            log.info(
+                f"Manual OAuth 2.0 configuration successful for client_id: {oauth_client_info.client_id}"
+            )
+            return oauth_client_info
+
+        # Original dynamic registration flow
         oauth_client_metadata = OAuthClientMetadata(
             client_name="Open WebUI",
             redirect_uris=[f"{redirect_base_url}/oauth/clients/{client_id}/callback"],
@@ -510,6 +608,11 @@ class OAuthClientManager:
         """
         Lazy-load an OAuth client from the current TOOL_SERVER_CONNECTIONS
         config if it hasn't been registered on this node yet.
+
+        Important: This method ensures that if a client was registered during authorization
+        with a prefixed client_id (e.g., "mcp:3MVG9mLJ..."), the callback (which may receive
+        a stripped client_id from the OAuth provider) will return the SAME client instance.
+        This is critical for Authlib's state management to work correctly.
         """
         if client_id in self.clients:
             return self.clients[client_id]["client"]
@@ -519,6 +622,11 @@ class OAuthClientManager:
         except Exception:
             connections = []
 
+        # Strip the prefix from the requested client_id for comparison
+        stripped_requested_client_id = (
+            client_id.split(":", 1)[-1] if ":" in client_id else client_id
+        )
+
         for connection in connections or []:
             if connection.get("type", "openapi") != "mcp":
                 continue
@@ -526,26 +634,59 @@ class OAuthClientManager:
                 continue
 
             server_id = connection.get("info", {}).get("id")
+            server_type = connection.get("type", "openapi")
             if not server_id:
                 continue
 
-            expected_client_id = f"mcp:{server_id}"
-            if client_id != expected_client_id:
-                continue
-
-            oauth_client_info = connection.get("info", {}).get("oauth_client_info", "")
-            if not oauth_client_info:
+            oauth_client_info_encrypted = connection.get("info", {}).get(
+                "oauth_client_info", ""
+            )
+            if not oauth_client_info_encrypted:
                 continue
 
             try:
-                oauth_client_info = decrypt_data(oauth_client_info)
-                return self.add_client(
-                    expected_client_id, OAuthClientInformationFull(**oauth_client_info)
-                )["client"]
+                oauth_client_info = decrypt_data(oauth_client_info_encrypted)
+                oauth_client_info_obj = OAuthClientInformationFull(**oauth_client_info)
+
+                # Check if the server_id from the connection matches the requested client_id
+                # This handles both prefixed (e.g., "mcp:atlassian") and stripped (e.g., "atlassian") formats
+                if server_id == client_id or server_id == stripped_requested_client_id:
+                    # Only add "mcp:" prefix when NO client_secret is provided (OAuth 2.1 dynamic registration)
+                    # For manual OAuth 2.0 with client_secret, use server_id as-is
+                    # Check the decrypted oauth_client_info for client_secret (source of truth)
+                    has_client_secret = bool(
+                        connection.get("info", {}).get("oauth_client_secret")
+                    )
+                    determined_client_id = (
+                        server_id if has_client_secret else f"{server_type}:{server_id}"
+                    )
+
+                    # CRITICAL: Check if the client is already registered with the determined client_id
+                    # This happens when the client was registered during app initialization or config update
+                    if determined_client_id in self.clients:
+                        log.debug(
+                            f"Returning existing client registered as {determined_client_id}"
+                        )
+                        return self.clients[determined_client_id]["client"]
+
+                    # Also check if registered with the other format (for backward compatibility during transition)
+                    alternate_client_id = (
+                        f"{server_type}:{server_id}" if has_client_secret else server_id
+                    )
+                    if alternate_client_id in self.clients:
+                        log.debug(
+                            f"Returning existing client registered as {alternate_client_id}"
+                        )
+                        return self.clients[alternate_client_id]["client"]
+
+                    # Register the client with the determined client_id for consistency
+                    # This ensures state storage/retrieval uses the same key
+                    log.debug(f"Registering new OAuth client as {determined_client_id}")
+                    return self.add_client(determined_client_id, oauth_client_info_obj)[
+                        "client"
+                    ]
             except Exception as e:
-                log.error(
-                    f"Failed to lazily add OAuth client {expected_client_id} from config: {e}"
-                )
+                log.error(f"Failed to lazily add OAuth client from config: {e}")
                 continue
 
         return None

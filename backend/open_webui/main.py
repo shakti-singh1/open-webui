@@ -576,7 +576,8 @@ class SPAStaticFiles(StaticFiles):
                 raise ex
 
 
-print(rf"""
+print(
+    rf"""
  ██████╗ ██████╗ ███████╗███╗   ██╗    ██╗    ██╗███████╗██████╗ ██╗   ██╗██╗
 ██╔═══██╗██╔══██╗██╔════╝████╗  ██║    ██║    ██║██╔════╝██╔══██╗██║   ██║██║
 ██║   ██║██████╔╝█████╗  ██╔██╗ ██║    ██║ █╗ ██║█████╗  ██████╔╝██║   ██║██║
@@ -588,7 +589,8 @@ print(rf"""
 v{VERSION} - building the best AI user interface.
 {f"Commit: {WEBUI_BUILD_HASH}" if WEBUI_BUILD_HASH != "dev-build" else ""}
 https://github.com/open-webui/open-webui
-""")
+"""
+)
 
 
 @asynccontextmanager
@@ -2240,9 +2242,23 @@ if len(app.state.config.TOOL_SERVER_CONNECTIONS) > 0:
 
                 try:
                     oauth_client_info = decrypt_data(oauth_client_info)
+                    oauth_client_info_obj = OAuthClientInformationFull(
+                        **oauth_client_info
+                    )
+
+                    # Only add "mcp:" prefix when NO client_secret is provided (OAuth 2.1 dynamic registration)
+                    # For manual OAuth 2.0 with client_secret, use server_id as-is
+                    # Check the decrypted oauth_client_info for client_secret (source of truth)
+                    has_client_secret = bool(
+                        tool_server_connection.get("info", {}).get(
+                            "oauth_client_secret"
+                        )
+                    )
+                    client_id = server_id if has_client_secret else f"mcp:{server_id}"
+
                     app.state.oauth_client_manager.add_client(
-                        f"mcp:{server_id}",
-                        OAuthClientInformationFull(**oauth_client_info),
+                        client_id,
+                        oauth_client_info_obj,
                     )
                 except Exception as e:
                     log.error(
@@ -2344,7 +2360,9 @@ async def oauth_client_authorize(
     user=Depends(get_verified_user),
 ):
     # ensure_valid_client_registration
-    client = oauth_client_manager.get_client(client_id)
+    client = oauth_client_manager.get_client(
+        client_id
+    ) or oauth_client_manager.ensure_client_from_config(client_id)
     client_info = oauth_client_manager.get_client_info(client_id)
     if client is None or client_info is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND)

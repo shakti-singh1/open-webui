@@ -206,6 +206,12 @@ type RegisterOAuthClientForm = {
 	url: string;
 	client_id: string;
 	client_name?: string;
+	// Optional fields for manual OAuth 2.0 configuration (bypasses dynamic registration)
+	client_secret?: string;
+	authorization_endpoint?: string;
+	token_endpoint?: string;
+	scope?: string;
+	token_endpoint_auth_method?: string;
 };
 
 export const registerOAuthClient = async (
@@ -243,8 +249,14 @@ export const registerOAuthClient = async (
 	return res;
 };
 
-export const getOAuthClientAuthorizationUrl = (clientId: string, type: null | string = null) => {
-	const oauthClientId = type ? `${type}:${clientId}` : clientId;
+export const getOAuthClientAuthorizationUrl = (
+	clientId: string,
+	type: null | string = null,
+	hasClientSecret: boolean = false
+) => {
+	// When client_secret is provided (manual OAuth 2.0 config), don't add prefix
+	// The backend stores the client with stripped client_id in this case
+	const oauthClientId = type && !hasClientSecret ? `${type}:${clientId}` : clientId;
 	return `${WEBUI_BASE_URL}/oauth/clients/${oauthClientId}/authorize`;
 };
 

@@ -100,6 +100,12 @@ class OAuthClientRegistrationForm(BaseModel):
     url: str
     client_id: str
     client_name: Optional[str] = None
+    # Optional fields for manual OAuth 2.0 configuration (bypasses dynamic registration)
+    client_secret: Optional[str] = None
+    authorization_endpoint: Optional[str] = None
+    token_endpoint: Optional[str] = None
+    scope: Optional[str] = None
+    token_endpoint_auth_method: Optional[str] = None
 
 
 @router.post("/oauth/clients/register")
@@ -111,12 +117,24 @@ async def register_oauth_client(
 ):
     try:
         oauth_client_id = form_data.client_id
-        if type:
+        if type and not form_data.client_secret:
             oauth_client_id = f"{type}:{form_data.client_id}"
+
+        # Prepare manual configuration if provided
+        manual_config = None
+        if form_data.authorization_endpoint or form_data.token_endpoint:
+            manual_config = {
+                "client_secret": form_data.client_secret,
+                "authorization_endpoint": form_data.authorization_endpoint,
+                "token_endpoint": form_data.token_endpoint,
+                "scope": form_data.scope,
+                "token_endpoint_auth_method": form_data.token_endpoint_auth_method,
+                "client_name": form_data.client_name,
+            }
 
         oauth_client_info = (
             await get_oauth_client_info_with_dynamic_client_registration(
-                request, oauth_client_id, form_data.url
+                request, oauth_client_id, form_data.url, manual_config=manual_config
             )
         )
         return {
@@ -146,6 +164,7 @@ class ToolServerConnection(BaseModel):
     headers: Optional[dict | str] = None
     key: Optional[str]
     config: Optional[dict]
+    info: Optional[dict] = None
 
     model_config = ConfigDict(extra="allow")
 
@@ -174,7 +193,12 @@ async def set_tool_servers_config(
         if auth_type == "oauth_2.1":
             # Remove existing OAuth clients for tool servers
             server_id = connection.get("info", {}).get("id")
-            client_key = f"{server_type}:{server_id}"
+            has_client_secret = bool(
+                connection.get("info", {}).get("oauth_client_secret")
+            )
+            client_key = (
+                server_id if has_client_secret else f"{server_type}:{server_id}"
+            )
 
             try:
                 request.app.state.oauth_client_manager.remove_client(client_key)
@@ -200,10 +224,23 @@ async def set_tool_servers_config(
                         "oauth_client_info", ""
                     )
                     oauth_client_info = decrypt_data(oauth_client_info)
+                    oauth_client_info_obj = OAuthClientInformationFull(
+                        **oauth_client_info
+                    )
+
+                    # Only add "mcp:" prefix when NO client_secret is provided (OAuth 2.1 dynamic registration)
+                    # For manual OAuth 2.0 with client_secret, use server_id as-is
+                    # Check the decrypted oauth_client_info for client_secret (source of truth)
+                    has_client_secret = bool(
+                        connection.get("info", {}).get("oauth_client_secret")
+                    )
+                    client_id = (
+                        server_id if has_client_secret else f"{server_type}:{server_id}"
+                    )
 
                     request.app.state.oauth_client_manager.add_client(
-                        f"{server_type}:{server_id}",
-                        OAuthClientInformationFull(**oauth_client_info),
+                        client_id,
+                        oauth_client_info_obj,
                     )
                 except Exception as e:
                     log.debug(f"Failed to add OAuth client for MCP tool server: {e}")
