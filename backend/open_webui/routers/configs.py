@@ -662,3 +662,73 @@ async def get_banners(
     user=Depends(get_verified_user),
 ):
     return request.app.state.config.BANNERS
+
+
+############################
+# Team Integrations Config (Admin)
+############################
+
+
+class MicrosoftTeamsIntegrationConfigForm(BaseModel):
+    ENABLE_MICROSOFT_TEAMS_INTEGRATION: bool
+    MICROSOFT_TEAMS_INTEGRATION_CLIENT_ID: str
+    MICROSOFT_TEAMS_INTEGRATION_CLIENT_SECRET: str
+    MICROSOFT_TEAMS_INTEGRATION_TENANT_ID: str
+
+
+class SlackIntegrationConfigForm(BaseModel):
+    ENABLE_SLACK_INTEGRATION: bool
+    SLACK_INTEGRATION_CLIENT_ID: str
+    SLACK_INTEGRATION_CLIENT_SECRET: str
+
+
+class TeamIntegrationsConfigForm(BaseModel):
+    microsoft: MicrosoftTeamsIntegrationConfigForm
+    slack: SlackIntegrationConfigForm
+
+
+@router.get('/team-integrations')
+async def get_team_integrations_config(request: Request, user=Depends(get_admin_user)):
+    return {
+        'microsoft': {
+            'ENABLE_MICROSOFT_TEAMS_INTEGRATION': request.app.state.config.ENABLE_MICROSOFT_TEAMS_INTEGRATION,
+            'MICROSOFT_TEAMS_INTEGRATION_CLIENT_ID': request.app.state.config.MICROSOFT_TEAMS_INTEGRATION_CLIENT_ID,
+            'MICROSOFT_TEAMS_INTEGRATION_CLIENT_SECRET': request.app.state.config.MICROSOFT_TEAMS_INTEGRATION_CLIENT_SECRET,
+            'MICROSOFT_TEAMS_INTEGRATION_TENANT_ID': request.app.state.config.MICROSOFT_TEAMS_INTEGRATION_TENANT_ID,
+        },
+        'slack': {
+            'ENABLE_SLACK_INTEGRATION': request.app.state.config.ENABLE_SLACK_INTEGRATION,
+            'SLACK_INTEGRATION_CLIENT_ID': request.app.state.config.SLACK_INTEGRATION_CLIENT_ID,
+            'SLACK_INTEGRATION_CLIENT_SECRET': request.app.state.config.SLACK_INTEGRATION_CLIENT_SECRET,
+        },
+    }
+
+
+@router.post('/team-integrations')
+async def set_team_integrations_config(
+    request: Request,
+    form_data: TeamIntegrationsConfigForm,
+    user=Depends(get_admin_user),
+):
+    request.app.state.config.ENABLE_MICROSOFT_TEAMS_INTEGRATION = form_data.microsoft.ENABLE_MICROSOFT_TEAMS_INTEGRATION
+    request.app.state.config.MICROSOFT_TEAMS_INTEGRATION_CLIENT_ID = form_data.microsoft.MICROSOFT_TEAMS_INTEGRATION_CLIENT_ID
+    request.app.state.config.MICROSOFT_TEAMS_INTEGRATION_CLIENT_SECRET = form_data.microsoft.MICROSOFT_TEAMS_INTEGRATION_CLIENT_SECRET
+    request.app.state.config.MICROSOFT_TEAMS_INTEGRATION_TENANT_ID = form_data.microsoft.MICROSOFT_TEAMS_INTEGRATION_TENANT_ID
+
+    request.app.state.config.ENABLE_SLACK_INTEGRATION = form_data.slack.ENABLE_SLACK_INTEGRATION
+    request.app.state.config.SLACK_INTEGRATION_CLIENT_ID = form_data.slack.SLACK_INTEGRATION_CLIENT_ID
+    request.app.state.config.SLACK_INTEGRATION_CLIENT_SECRET = form_data.slack.SLACK_INTEGRATION_CLIENT_SECRET
+
+    return {
+        'microsoft': {
+            'ENABLE_MICROSOFT_TEAMS_INTEGRATION': request.app.state.config.ENABLE_MICROSOFT_TEAMS_INTEGRATION,
+            'MICROSOFT_TEAMS_INTEGRATION_CLIENT_ID': request.app.state.config.MICROSOFT_TEAMS_INTEGRATION_CLIENT_ID,
+            'MICROSOFT_TEAMS_INTEGRATION_CLIENT_SECRET': request.app.state.config.MICROSOFT_TEAMS_INTEGRATION_CLIENT_SECRET,
+            'MICROSOFT_TEAMS_INTEGRATION_TENANT_ID': request.app.state.config.MICROSOFT_TEAMS_INTEGRATION_TENANT_ID,
+        },
+        'slack': {
+            'ENABLE_SLACK_INTEGRATION': request.app.state.config.ENABLE_SLACK_INTEGRATION,
+            'SLACK_INTEGRATION_CLIENT_ID': request.app.state.config.SLACK_INTEGRATION_CLIENT_ID,
+            'SLACK_INTEGRATION_CLIENT_SECRET': request.app.state.config.SLACK_INTEGRATION_CLIENT_SECRET,
+        },
+    }
