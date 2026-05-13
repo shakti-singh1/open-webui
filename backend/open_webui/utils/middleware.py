@@ -115,6 +115,7 @@ from open_webui.utils.code_interpreter import execute_code_jupyter
 from open_webui.utils.payload import apply_system_prompt_to_body
 from open_webui.utils.response import normalize_usage
 from open_webui.utils.mcp.client import MCPClient
+from mcp.types import ElicitResult
 
 
 from open_webui.config import (
@@ -1005,6 +1006,52 @@ def apply_source_context_to_messages(
             messages,
             append=False,
         )
+
+
+def make_elicitation_callback(event_caller):
+    """Return an MCP elicitation callback that forwards requests to the frontend.
+
+    The frontend receives an 'mcp:elicitation' event and must reply with
+    {'action': 'accept'|'decline'|'cancel', 'content': {...}|null}.
+    """
+
+    async def elicitation_callback(context, params):
+        if not event_caller:
+            return ElicitResult(action='cancel', content=None)
+
+        try:
+            mode = getattr(params, 'mode', 'form')
+            if mode == 'url':
+                elicit_data = {
+                    'mode': 'url',
+                    'message': getattr(params, 'message', ''),
+                    'url': getattr(params, 'url', ''),
+                    'elicitationId': getattr(params, 'elicitationId', ''),
+                }
+            else:
+                elicit_data = {
+                    'mode': 'form',
+                    'message': getattr(params, 'message', ''),
+                    'requestedSchema': getattr(params, 'requestedSchema', {}),
+                }
+
+            response = await event_caller(
+                {
+                    'type': 'mcp:elicitation',
+                    'data': elicit_data,
+                }
+            )
+
+            if response and isinstance(response, dict):
+                action = response.get('action', 'cancel')
+                content = response.get('content', None)
+                return ElicitResult(action=action, content=content)
+        except Exception as e:
+            log.warning(f'MCP elicitation callback error: {e}')
+
+        return ElicitResult(action='cancel', content=None)
+
+    return elicitation_callback
 
 
 async def process_tool_result(
@@ -2668,10 +2715,12 @@ async def process_chat_payload(request, form_data, user, metadata, model):
                             if metadata and metadata.get('message_id'):
                                 headers[FORWARD_SESSION_INFO_HEADER_MESSAGE_ID] = metadata.get('message_id')
 
+                        elicit_cb = make_elicitation_callback(event_caller)
                         mcp_clients[server_id] = MCPClient()
                         await mcp_clients[server_id].connect(
                             url=mcp_server_connection.get('url', ''),
                             headers=headers if headers else None,
+                            elicitation_callback=elicit_cb,
                         )
 
                         function_name_filter_list = mcp_server_connection.get('config', {}).get(

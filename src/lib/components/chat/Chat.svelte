@@ -101,6 +101,7 @@
 	import Navbar from '$lib/components/chat/Navbar.svelte';
 	import ChatControls from './ChatControls.svelte';
 	import EventConfirmDialog from '../common/ConfirmDialog.svelte';
+	import McpElicitationModal from './McpElicitationModal.svelte';
 	import Placeholder from './Placeholder.svelte';
 	import FilesOverlay from './MessageInput/FilesOverlay.svelte';
 	import NotificationToast from '../NotificationToast.svelte';
@@ -134,6 +135,15 @@
 	let eventConfirmationInputValue = '';
 	let eventConfirmationInputType = '';
 	let eventCallback = null;
+
+	let showMcpElicitation = false;
+	let mcpElicitationData: {
+		mode: 'form' | 'url';
+		message: string;
+		requestedSchema?: Record<string, any>;
+		url?: string;
+		elicitationId?: string;
+	} | null = null;
 
 	let selectedModels = [''];
 	let atSelectedModel: Model | undefined;
@@ -596,6 +606,10 @@
 					eventConfirmationInputPlaceholder = data.placeholder;
 					eventConfirmationInputValue = data?.value ?? '';
 					eventConfirmationInputType = data?.type ?? '';
+				} else if (type === 'mcp:elicitation') {
+					eventCallback = cb;
+					mcpElicitationData = data;
+					showMcpElicitation = true;
 				} else if (type.startsWith('terminal:')) {
 					terminalEventHandler(type, data);
 				} else {
@@ -2806,6 +2820,20 @@
 	}}
 	on:cancel={() => {
 		eventCallback(false);
+	}}
+/>
+
+<McpElicitationModal
+	bind:show={showMcpElicitation}
+	data={mcpElicitationData}
+	on:accept={(e) => {
+		if (eventCallback) eventCallback({ action: 'accept', content: e.detail });
+	}}
+	on:decline={() => {
+		if (eventCallback) eventCallback({ action: 'decline', content: null });
+	}}
+	on:cancel={() => {
+		if (eventCallback) eventCallback({ action: 'cancel', content: null });
 	}}
 />
 

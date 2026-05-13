@@ -53,7 +53,7 @@ class MCPClient:
         self.session: Optional[ClientSession] = None
         self.exit_stack = None
 
-    async def connect(self, url: str, headers: Optional[dict] = None):
+    async def connect(self, url: str, headers: Optional[dict] = None, elicitation_callback=None):
         async with AsyncExitStack() as exit_stack:
             try:
                 self._streams_context = streamablehttp_client(
@@ -67,7 +67,11 @@ class MCPClient:
                 transport = await exit_stack.enter_async_context(self._streams_context)
                 read_stream, write_stream, _ = transport
 
-                self._session_context = ClientSession(read_stream, write_stream)  # pylint: disable=W0201
+                self._session_context = ClientSession(  # pylint: disable=W0201
+                    read_stream,
+                    write_stream,
+                    elicitation_callback=elicitation_callback,
+                )
 
                 self.session = await exit_stack.enter_async_context(self._session_context)
                 with anyio.fail_after(10):
