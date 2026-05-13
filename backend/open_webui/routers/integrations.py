@@ -23,7 +23,7 @@ router = APIRouter()
 MICROSOFT_PROVIDER = 'microsoft_teams_integration'
 SLACK_PROVIDER = 'slack_integration'
 
-# Microsoft Graph API scopes for Teams, Outlook, Calendar
+# Microsoft Graph API scopes for Teams, Outlook, Calendar, OneDrive, SharePoint
 MICROSOFT_SCOPES = [
     'offline_access',
     'User.Read',
@@ -34,6 +34,9 @@ MICROSOFT_SCOPES = [
     'ChannelMessage.Send',
     'Chat.ReadWrite',
     'Team.ReadBasic.All',
+    'Files.Read',
+    'Files.ReadWrite',
+    'Sites.Read.All',
 ]
 
 # Slack OAuth scopes

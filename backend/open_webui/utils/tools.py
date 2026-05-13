@@ -117,6 +117,17 @@ from open_webui.tools.slack_integration import (
     search_slack_messages,
     send_slack_dm,
 )
+from open_webui.tools.onedrive_sharepoint import (
+    list_onedrive_files,
+    search_onedrive,
+    read_onedrive_file,
+    get_onedrive_file_link,
+    list_sharepoint_sites,
+    search_sharepoint,
+    list_sharepoint_site_files,
+    read_sharepoint_file,
+    get_sharepoint_list_items,
+)
 
 import copy
 from open_webui.utils.access_control import has_permission
@@ -610,6 +621,15 @@ async def get_builtin_tools(
                 get_teams_channels,
                 send_teams_message,
                 get_teams_channel_messages,
+                list_onedrive_files,
+                search_onedrive,
+                read_onedrive_file,
+                get_onedrive_file_link,
+                list_sharepoint_sites,
+                search_sharepoint,
+                list_sharepoint_site_files,
+                read_sharepoint_file,
+                get_sharepoint_list_items,
             ])
 
     # Slack integration tools
