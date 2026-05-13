@@ -99,6 +99,24 @@ from open_webui.tools.builtin import (
     update_calendar_event,
     delete_calendar_event,
 )
+from open_webui.tools.microsoft_integration import (
+    get_outlook_emails,
+    read_outlook_email,
+    send_outlook_email,
+    get_outlook_calendar_events,
+    create_outlook_calendar_event,
+    list_teams,
+    get_teams_channels,
+    send_teams_message,
+    get_teams_channel_messages,
+)
+from open_webui.tools.slack_integration import (
+    list_slack_channels,
+    get_slack_channel_history,
+    send_slack_message,
+    search_slack_messages,
+    send_slack_dm,
+)
 
 import copy
 from open_webui.utils.access_control import has_permission
@@ -570,6 +588,48 @@ async def get_builtin_tools(
         builtin_functions.extend(
             [search_calendar_events, create_calendar_event, update_calendar_event, delete_calendar_event]
         )
+
+    # Microsoft Teams / Outlook / Calendar integration tools
+    # Auto-enabled when admin has configured the integration AND user has connected their account
+    if (
+        is_builtin_tool_enabled('microsoft_integration')
+        and getattr(request.app.state.config, 'ENABLE_MICROSOFT_TEAMS_INTEGRATION', False)
+    ):
+        from open_webui.models.oauth_sessions import OAuthSessions as _OAuthSessions
+        _ms_session = await _OAuthSessions.get_session_by_provider_and_user_id(
+            'microsoft_teams_integration', user.get('id', '')
+        )
+        if _ms_session:
+            builtin_functions.extend([
+                get_outlook_emails,
+                read_outlook_email,
+                send_outlook_email,
+                get_outlook_calendar_events,
+                create_outlook_calendar_event,
+                list_teams,
+                get_teams_channels,
+                send_teams_message,
+                get_teams_channel_messages,
+            ])
+
+    # Slack integration tools
+    # Auto-enabled when admin has configured the integration AND user has connected their workspace
+    if (
+        is_builtin_tool_enabled('slack_integration')
+        and getattr(request.app.state.config, 'ENABLE_SLACK_INTEGRATION', False)
+    ):
+        from open_webui.models.oauth_sessions import OAuthSessions as _OAuthSessions2
+        _slack_session = await _OAuthSessions2.get_session_by_provider_and_user_id(
+            'slack_integration', user.get('id', '')
+        )
+        if _slack_session:
+            builtin_functions.extend([
+                list_slack_channels,
+                get_slack_channel_history,
+                send_slack_message,
+                search_slack_messages,
+                send_slack_dm,
+            ])
 
     for func in builtin_functions:
         callable = await get_async_tool_function_and_apply_extra_params(
