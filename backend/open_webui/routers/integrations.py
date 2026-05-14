@@ -37,6 +37,7 @@ MICROSOFT_SCOPES = [
     'Files.Read',
     'Files.ReadWrite',
     'Sites.Read.All',
+    'OnlineMeetings.Read',
 ]
 
 # Slack OAuth scopes

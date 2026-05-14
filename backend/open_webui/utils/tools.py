@@ -128,6 +128,10 @@ from open_webui.tools.onedrive_sharepoint import (
     read_sharepoint_file,
     get_sharepoint_list_items,
 )
+from open_webui.tools.teams_meetings import (
+    find_teams_meeting,
+    get_teams_meeting_transcript,
+)
 
 import copy
 from open_webui.utils.access_control import has_permission
@@ -630,6 +634,8 @@ async def get_builtin_tools(
                 list_sharepoint_site_files,
                 read_sharepoint_file,
                 get_sharepoint_list_items,
+                find_teams_meeting,
+                get_teams_meeting_transcript,
             ])
 
     # Slack integration tools
