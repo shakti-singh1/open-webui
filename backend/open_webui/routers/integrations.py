@@ -25,19 +25,48 @@ SLACK_PROVIDER = 'slack_integration'
 
 # Microsoft Graph API scopes for Teams, Outlook, Calendar, OneDrive, SharePoint
 MICROSOFT_SCOPES = [
+    # Basic access
     'offline_access',
+    'openid',
+    'email',
+    'profile',
     'User.Read',
+    # User directory
+    'User.ReadBasic.All',
+    # Email (Outlook)
     'Mail.Read',
+    'Mail.ReadBasic',
+    'Mail.Read.Shared',
+    'MailboxFolder.Read',
+    'MailboxItem.Read',
     'Mail.Send',
+    # Calendar
     'Calendars.Read',
+    'Calendars.Read.Shared',
     'Calendars.ReadWrite',
-    'ChannelMessage.Send',
+    # Teams Chat
+    'Chat.Read',
+    'Chat.ReadBasic',
     'Chat.ReadWrite',
+    'ChatMember.Read',
+    'ChatMessage.Read',
+    # Teams Channels
+    'Channel.ReadBasic.All',
+    'ChannelMessage.Read.All',
+    'ChannelMessage.Send',
+    # Teams membership
     'Team.ReadBasic.All',
+    # Meetings
+    'OnlineMeetings.Read',
+    'OnlineMeetingTranscript.Read.All',
+    'OnlineMeetingAiInsight.Read',
+    'OnlineMeetingArtifact.Read.All',
+    'OnlineMeetingRecording.Read.All',
+    # Files (OneDrive and SharePoint)
     'Files.Read',
+    'Files.Read.All',
     'Files.ReadWrite',
     'Sites.Read.All',
-    'OnlineMeetings.Read',
 ]
 
 # Slack OAuth scopes

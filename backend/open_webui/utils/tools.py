@@ -103,12 +103,21 @@ from open_webui.tools.microsoft_integration import (
     get_outlook_emails,
     read_outlook_email,
     send_outlook_email,
+    list_mailbox_folders,
+    get_shared_mailbox_emails,
     get_outlook_calendar_events,
     create_outlook_calendar_event,
+    list_calendars,
+    get_shared_calendar_events,
+    get_user_availability,
     list_teams,
     get_teams_channels,
     send_teams_message,
     get_teams_channel_messages,
+    list_teams_chats,
+    get_teams_chat_messages,
+    get_chat_members,
+    find_org_users,
 )
 from open_webui.tools.slack_integration import (
     list_slack_channels,
@@ -131,6 +140,8 @@ from open_webui.tools.onedrive_sharepoint import (
 from open_webui.tools.teams_meetings import (
     find_teams_meeting,
     get_teams_meeting_transcript,
+    get_meeting_recordings,
+    get_meeting_ai_insights,
 )
 
 import copy
@@ -616,15 +627,34 @@ async def get_builtin_tools(
         )
         if _ms_session:
             builtin_functions.extend([
+                # Email
                 get_outlook_emails,
                 read_outlook_email,
                 send_outlook_email,
+                list_mailbox_folders,
+                get_shared_mailbox_emails,
+                # Calendar
                 get_outlook_calendar_events,
                 create_outlook_calendar_event,
+                list_calendars,
+                get_shared_calendar_events,
+                # Scheduling
+                get_user_availability,
+                # Teams channels
                 list_teams,
                 get_teams_channels,
                 send_teams_message,
                 get_teams_channel_messages,
+                # Teams chats
+                list_teams_chats,
+                get_teams_chat_messages,
+                get_chat_members,
+                # Meetings
+                find_teams_meeting,
+                get_teams_meeting_transcript,
+                get_meeting_recordings,
+                get_meeting_ai_insights,
+                # OneDrive & SharePoint
                 list_onedrive_files,
                 search_onedrive,
                 read_onedrive_file,
@@ -634,8 +664,8 @@ async def get_builtin_tools(
                 list_sharepoint_site_files,
                 read_sharepoint_file,
                 get_sharepoint_list_items,
-                find_teams_meeting,
-                get_teams_meeting_transcript,
+                # User directory
+                find_org_users,
             ])
 
     # Slack integration tools
