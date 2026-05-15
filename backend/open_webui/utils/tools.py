@@ -143,6 +143,7 @@ from open_webui.tools.teams_meetings import (
     get_meeting_recordings,
     get_meeting_ai_insights,
 )
+from open_webui.tools.work_iq import query_work_iq
 
 import copy
 from open_webui.utils.access_control import has_permission
@@ -686,6 +687,19 @@ async def get_builtin_tools(
                 search_slack_messages,
                 send_slack_dm,
             ])
+
+    # Work IQ integration — natural language queries over all Microsoft 365 data
+    # Auto-enabled when admin has configured it AND user's Microsoft connect fetched the Work IQ token
+    if (
+        is_builtin_tool_enabled('work_iq_integration')
+        and getattr(request.app.state.config, 'ENABLE_WORK_IQ_INTEGRATION', False)
+    ):
+        from open_webui.models.oauth_sessions import OAuthSessions as _WIQSessions
+        _wiq_session = await _WIQSessions.get_session_by_provider_and_user_id(
+            'workiq_integration', user.get('id', '')
+        )
+        if _wiq_session:
+            builtin_functions.append(query_work_iq)
 
     for func in builtin_functions:
         callable = await get_async_tool_function_and_apply_extra_params(

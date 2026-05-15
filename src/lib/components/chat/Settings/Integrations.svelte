@@ -34,6 +34,7 @@
 	let integrationStatus: {
 		microsoft: { enabled: boolean; connected: boolean; account?: { name: string; email: string } | null; expires_at?: number | null };
 		slack: { enabled: boolean; connected: boolean; workspace?: string | null; expires_at?: number | null };
+		work_iq: { enabled: boolean; connected: boolean; expires_at?: number | null };
 	} | null = null;
 
 	let microsoftConnecting = false;
@@ -220,7 +221,7 @@
 			</div>
 
 			<!-- Connected Apps Section -->
-			{#if integrationStatus && (integrationStatus.microsoft?.enabled || integrationStatus.slack?.enabled)}
+			{#if integrationStatus && (integrationStatus.microsoft?.enabled || integrationStatus.slack?.enabled || integrationStatus.work_iq?.enabled)}
 				<hr class="border-gray-100/50 dark:border-gray-850/50 my-4" />
 
 				<div class="pr-1.5">
@@ -246,6 +247,13 @@
 											<div class="text-xs text-green-500">{$i18n.t('Connected')}</div>
 										{:else}
 											<div class="text-xs text-gray-400">{$i18n.t('Teams, Outlook & Calendar')}</div>
+										{/if}
+										{#if integrationStatus.work_iq?.enabled}
+											{#if integrationStatus.work_iq?.connected}
+												<div class="text-xs text-blue-500 mt-0.5">{$i18n.t('Work IQ: connected')}</div>
+											{:else if integrationStatus.microsoft?.connected}
+												<div class="text-xs text-amber-500 mt-0.5">{$i18n.t('Work IQ: reconnect to activate')}</div>
+											{/if}
 										{/if}
 									</div>
 								</div>

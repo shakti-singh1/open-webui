@@ -45,6 +45,8 @@
 	let slackClientId = '';
 	let slackClientSecret = '';
 
+	let workIqEnabled = false;
+
 	let teamIntegrationsSaving = false;
 
 	const loadTeamIntegrationsConfig = async () => {
@@ -58,6 +60,8 @@
 			slackEnabled = config.slack?.ENABLE_SLACK_INTEGRATION ?? false;
 			slackClientId = config.slack?.SLACK_INTEGRATION_CLIENT_ID ?? '';
 			slackClientSecret = config.slack?.SLACK_INTEGRATION_CLIENT_SECRET ?? '';
+
+			workIqEnabled = config.work_iq?.ENABLE_WORK_IQ_INTEGRATION ?? false;
 		}
 	};
 
@@ -74,6 +78,9 @@
 				ENABLE_SLACK_INTEGRATION: slackEnabled,
 				SLACK_INTEGRATION_CLIENT_ID: slackClientId,
 				SLACK_INTEGRATION_CLIENT_SECRET: slackClientSecret
+			},
+			work_iq: {
+				ENABLE_WORK_IQ_INTEGRATION: workIqEnabled
 			}
 		});
 		teamIntegrationsSaving = false;
@@ -435,6 +442,40 @@
 								'Register an Azure App with Mail.Read, Mail.Send, Calendars.ReadWrite, ChannelMessage.Send, and Chat.ReadWrite scopes. Set the redirect URI to: {url}',
 								{ url: `${window.location.origin}/api/v1/integrations/microsoft/callback` }
 							)}
+						</div>
+					</div>
+				{/if}
+			</div>
+
+			<!-- Microsoft Work IQ -->
+			<div class="mb-5">
+				<div class="flex items-center justify-between mb-3">
+					<div class="flex items-center gap-2">
+						<svg class="size-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+							<rect width="24" height="24" rx="4" fill="#0078D4"/>
+							<path d="M6 8h5v8H6zM13 8h5v3.5h-5zM13 13.5h5V17h-5z" fill="white"/>
+						</svg>
+						<div class="font-medium">{$i18n.t('Microsoft Work IQ')}</div>
+					</div>
+					<Switch
+						state={workIqEnabled}
+						on:change={() => (workIqEnabled = !workIqEnabled)}
+					/>
+				</div>
+
+				{#if workIqEnabled}
+					<div class="flex flex-col gap-2 pl-2">
+						<div class="text-xs text-gray-500 leading-relaxed">
+							{$i18n.t('Work IQ provides AI-powered natural language queries over all Microsoft 365 data (email, calendar, Teams, SharePoint, OneDrive). Tokens are fetched automatically when users connect their Microsoft account.')}
+						</div>
+						<div class="text-xs bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-2 text-amber-800 dark:text-amber-200">
+							<strong>{$i18n.t('Requirements:')}</strong>
+							<ul class="list-disc ml-4 mt-1 space-y-0.5">
+								<li>{$i18n.t('Microsoft 365 Copilot license per user')}</li>
+								<li>{$i18n.t('WorkIQAgent.Ask delegated permission granted in the same Entra app registration (app ID: fdcc1f02-fc51-4226-8753-f668596af7f7)')}</li>
+								<li>{$i18n.t('Admin consent required for tenant')}</li>
+								<li>{$i18n.t('Users must reconnect their Microsoft account after enabling')}</li>
+							</ul>
 						</div>
 					</div>
 				{/if}

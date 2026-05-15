@@ -682,9 +682,14 @@ class SlackIntegrationConfigForm(BaseModel):
     SLACK_INTEGRATION_CLIENT_SECRET: str
 
 
+class WorkIQIntegrationConfigForm(BaseModel):
+    ENABLE_WORK_IQ_INTEGRATION: bool
+
+
 class TeamIntegrationsConfigForm(BaseModel):
     microsoft: MicrosoftTeamsIntegrationConfigForm
     slack: SlackIntegrationConfigForm
+    work_iq: WorkIQIntegrationConfigForm
 
 
 @router.get('/team-integrations')
@@ -700,6 +705,9 @@ async def get_team_integrations_config(request: Request, user=Depends(get_admin_
             'ENABLE_SLACK_INTEGRATION': request.app.state.config.ENABLE_SLACK_INTEGRATION,
             'SLACK_INTEGRATION_CLIENT_ID': request.app.state.config.SLACK_INTEGRATION_CLIENT_ID,
             'SLACK_INTEGRATION_CLIENT_SECRET': request.app.state.config.SLACK_INTEGRATION_CLIENT_SECRET,
+        },
+        'work_iq': {
+            'ENABLE_WORK_IQ_INTEGRATION': getattr(request.app.state.config, 'ENABLE_WORK_IQ_INTEGRATION', False),
         },
     }
 
@@ -718,6 +726,7 @@ async def set_team_integrations_config(
     request.app.state.config.ENABLE_SLACK_INTEGRATION = form_data.slack.ENABLE_SLACK_INTEGRATION
     request.app.state.config.SLACK_INTEGRATION_CLIENT_ID = form_data.slack.SLACK_INTEGRATION_CLIENT_ID
     request.app.state.config.SLACK_INTEGRATION_CLIENT_SECRET = form_data.slack.SLACK_INTEGRATION_CLIENT_SECRET
+    request.app.state.config.ENABLE_WORK_IQ_INTEGRATION = form_data.work_iq.ENABLE_WORK_IQ_INTEGRATION
 
     return {
         'microsoft': {
@@ -730,5 +739,8 @@ async def set_team_integrations_config(
             'ENABLE_SLACK_INTEGRATION': request.app.state.config.ENABLE_SLACK_INTEGRATION,
             'SLACK_INTEGRATION_CLIENT_ID': request.app.state.config.SLACK_INTEGRATION_CLIENT_ID,
             'SLACK_INTEGRATION_CLIENT_SECRET': request.app.state.config.SLACK_INTEGRATION_CLIENT_SECRET,
+        },
+        'work_iq': {
+            'ENABLE_WORK_IQ_INTEGRATION': request.app.state.config.ENABLE_WORK_IQ_INTEGRATION,
         },
     }

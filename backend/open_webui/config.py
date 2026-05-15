@@ -2696,6 +2696,12 @@ SLACK_INTEGRATION_CLIENT_SECRET = PersistentConfig(
     os.environ.get('SLACK_INTEGRATION_CLIENT_SECRET', ''),
 )
 
+ENABLE_WORK_IQ_INTEGRATION = PersistentConfig(
+    'ENABLE_WORK_IQ_INTEGRATION',
+    'integrations.work_iq.enabled',
+    os.getenv('ENABLE_WORK_IQ_INTEGRATION', 'False').lower() == 'true',
+)
+
 # RAG Content Extraction
 CONTENT_EXTRACTION_ENGINE = PersistentConfig(
     'CONTENT_EXTRACTION_ENGINE',

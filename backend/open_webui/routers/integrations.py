@@ -22,6 +22,8 @@ router = APIRouter()
 
 MICROSOFT_PROVIDER = 'microsoft_teams_integration'
 SLACK_PROVIDER = 'slack_integration'
+WORK_IQ_PROVIDER = 'workiq_integration'
+WORK_IQ_SCOPE = 'api://workiq.svc.cloud.microsoft/WorkIQAgent.Ask offline_access'
 
 # Microsoft Graph API scopes for Teams, Outlook, Calendar, OneDrive, SharePoint
 MICROSOFT_SCOPES = [
@@ -100,9 +102,11 @@ async def get_integration_status(request: Request, user=Depends(get_verified_use
     """Return which integrations the current user has connected."""
     microsoft_enabled = request.app.state.config.ENABLE_MICROSOFT_TEAMS_INTEGRATION
     slack_enabled = request.app.state.config.ENABLE_SLACK_INTEGRATION
+    work_iq_enabled = getattr(request.app.state.config, 'ENABLE_WORK_IQ_INTEGRATION', False)
 
     microsoft_session = None
     slack_session = None
+    work_iq_session = None
 
     if microsoft_enabled:
         microsoft_session = await OAuthSessions.get_session_by_provider_and_user_id(
@@ -112,6 +116,11 @@ async def get_integration_status(request: Request, user=Depends(get_verified_use
     if slack_enabled:
         slack_session = await OAuthSessions.get_session_by_provider_and_user_id(
             SLACK_PROVIDER, user.id
+        )
+
+    if work_iq_enabled:
+        work_iq_session = await OAuthSessions.get_session_by_provider_and_user_id(
+            WORK_IQ_PROVIDER, user.id
         )
 
     return {
@@ -126,6 +135,11 @@ async def get_integration_status(request: Request, user=Depends(get_verified_use
             'connected': slack_session is not None,
             'workspace': slack_session.token.get('team', {}).get('name') if slack_session else None,
             'expires_at': slack_session.expires_at if slack_session else None,
+        },
+        'work_iq': {
+            'enabled': work_iq_enabled,
+            'connected': work_iq_session is not None,
+            'expires_at': work_iq_session.expires_at if work_iq_session else None,
         },
     }
 
@@ -238,6 +252,15 @@ async def microsoft_callback(request: Request, code: Optional[str] = None, state
     await OAuthSessions.delete_sessions_by_user_id_and_provider(user_id, MICROSOFT_PROVIDER)
     await OAuthSessions.create_session(user_id, MICROSOFT_PROVIDER, token_to_store)
 
+    # If Work IQ is enabled, also exchange the refresh token for a Work IQ token
+    if getattr(config, 'ENABLE_WORK_IQ_INTEGRATION', False):
+        wiq_token = await _fetch_work_iq_token(config, token_data.get('refresh_token', ''))
+        if wiq_token:
+            await OAuthSessions.delete_sessions_by_user_id_and_provider(user_id, WORK_IQ_PROVIDER)
+            await OAuthSessions.create_session(user_id, WORK_IQ_PROVIDER, wiq_token)
+        else:
+            log.info('Work IQ token exchange skipped — WorkIQAgent.Ask permission may not be granted in Entra')
+
     return RedirectResponse('/integrations/callback?provider=microsoft&status=success')
 
 
@@ -269,6 +292,9 @@ async def microsoft_disconnect(request: Request, user=Depends(get_verified_user)
                 log.warning(f'Microsoft token revocation failed (continuing disconnect): {e}')
 
         await OAuthSessions.delete_sessions_by_user_id_and_provider(user.id, MICROSOFT_PROVIDER)
+
+    # Also clear Work IQ token (it shares the same Microsoft identity)
+    await OAuthSessions.delete_sessions_by_user_id_and_provider(user.id, WORK_IQ_PROVIDER)
 
     return {'status': 'ok', 'message': 'Microsoft integration disconnected'}
 
@@ -315,6 +341,61 @@ async def refresh_microsoft_token(config, session) -> Optional[dict]:
     except Exception as e:
         log.error(f'Error refreshing Microsoft token: {e}')
         return None
+
+
+############################
+# Work IQ Token Helpers (internal)
+############################
+
+
+async def _fetch_work_iq_token(config, refresh_token: str) -> Optional[dict]:
+    """Exchange a Microsoft refresh token for a Work IQ access token. Returns token dict or None."""
+    if not refresh_token:
+        return None
+
+    tenant_id = config.MICROSOFT_TEAMS_INTEGRATION_TENANT_ID or 'common'
+    token_url = f'https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token'
+
+    try:
+        async with aiohttp.ClientSession() as http:
+            async with http.post(
+                token_url,
+                data={
+                    'client_id': config.MICROSOFT_TEAMS_INTEGRATION_CLIENT_ID,
+                    'client_secret': config.MICROSOFT_TEAMS_INTEGRATION_CLIENT_SECRET,
+                    'grant_type': 'refresh_token',
+                    'refresh_token': refresh_token,
+                    'scope': WORK_IQ_SCOPE,
+                },
+                ssl=AIOHTTP_CLIENT_SESSION_SSL,
+            ) as resp:
+                if resp.status != 200:
+                    body = await resp.text()
+                    log.debug(f'Work IQ token exchange failed ({resp.status}): {body[:300]}')
+                    return None
+                data = await resp.json()
+
+        return {
+            'access_token': data.get('access_token', ''),
+            'refresh_token': data.get('refresh_token', refresh_token),
+            'token_type': 'Bearer',
+            'expires_at': int(time.time()) + int(data.get('expires_in', 3600)),
+        }
+    except Exception as e:
+        log.debug(f'Work IQ token exchange error: {e}')
+        return None
+
+
+async def refresh_work_iq_token(config, session) -> Optional[dict]:
+    """Refresh an expired Work IQ access token. Returns updated token dict or None."""
+    refresh_token = session.token.get('refresh_token')
+    if not refresh_token:
+        return None
+
+    updated = await _fetch_work_iq_token(config, refresh_token)
+    if updated:
+        await OAuthSessions.update_session_by_id(session.id, updated)
+    return updated
 
 
 ############################
