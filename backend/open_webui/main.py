@@ -106,6 +106,7 @@ from open_webui.routers import (
     terminals,
     automations,
     calendar,
+    integrations,
 )
 
 from open_webui.routers.retrieval import (
@@ -367,6 +368,14 @@ from open_webui.config import (
     ONEDRIVE_SHAREPOINT_TENANT_ID,
     ENABLE_ONEDRIVE_PERSONAL,
     ENABLE_ONEDRIVE_BUSINESS,
+    ENABLE_MICROSOFT_TEAMS_INTEGRATION,
+    MICROSOFT_TEAMS_INTEGRATION_CLIENT_ID,
+    MICROSOFT_TEAMS_INTEGRATION_CLIENT_SECRET,
+    MICROSOFT_TEAMS_INTEGRATION_TENANT_ID,
+    ENABLE_SLACK_INTEGRATION,
+    SLACK_INTEGRATION_CLIENT_ID,
+    SLACK_INTEGRATION_CLIENT_SECRET,
+    ENABLE_WORK_IQ_INTEGRATION,
     ENABLE_RAG_HYBRID_SEARCH,
     ENABLE_RAG_HYBRID_SEARCH_ENRICHED_TEXTS,
     ENABLE_RAG_LOCAL_WEB_FETCH,
@@ -1103,6 +1112,15 @@ app.state.config.BYPASS_WEB_SEARCH_WEB_LOADER = BYPASS_WEB_SEARCH_WEB_LOADER
 app.state.config.ENABLE_GOOGLE_DRIVE_INTEGRATION = ENABLE_GOOGLE_DRIVE_INTEGRATION
 app.state.config.ENABLE_ONEDRIVE_INTEGRATION = ENABLE_ONEDRIVE_INTEGRATION
 
+app.state.config.ENABLE_MICROSOFT_TEAMS_INTEGRATION = ENABLE_MICROSOFT_TEAMS_INTEGRATION
+app.state.config.MICROSOFT_TEAMS_INTEGRATION_CLIENT_ID = MICROSOFT_TEAMS_INTEGRATION_CLIENT_ID
+app.state.config.MICROSOFT_TEAMS_INTEGRATION_CLIENT_SECRET = MICROSOFT_TEAMS_INTEGRATION_CLIENT_SECRET
+app.state.config.MICROSOFT_TEAMS_INTEGRATION_TENANT_ID = MICROSOFT_TEAMS_INTEGRATION_TENANT_ID
+app.state.config.ENABLE_SLACK_INTEGRATION = ENABLE_SLACK_INTEGRATION
+app.state.config.SLACK_INTEGRATION_CLIENT_ID = SLACK_INTEGRATION_CLIENT_ID
+app.state.config.SLACK_INTEGRATION_CLIENT_SECRET = SLACK_INTEGRATION_CLIENT_SECRET
+app.state.config.ENABLE_WORK_IQ_INTEGRATION = ENABLE_WORK_IQ_INTEGRATION
+
 app.state.config.OLLAMA_CLOUD_WEB_SEARCH_API_KEY = OLLAMA_CLOUD_WEB_SEARCH_API_KEY
 app.state.config.SEARXNG_QUERY_URL = SEARXNG_QUERY_URL
 app.state.config.SEARXNG_LANGUAGE = SEARXNG_LANGUAGE
@@ -1456,6 +1474,7 @@ app.include_router(utils.router, prefix='/api/v1/utils', tags=['utils'])
 app.include_router(terminals.router, prefix='/api/v1/terminals', tags=['terminals'])
 app.include_router(automations.router, prefix='/api/v1/automations', tags=['automations'])
 app.include_router(calendar.router, prefix='/api/v1/calendars', tags=['calendars'])
+app.include_router(integrations.router, prefix='/api/v1/integrations', tags=['integrations'])
 
 # SCIM 2.0 API for identity management
 if ENABLE_SCIM:

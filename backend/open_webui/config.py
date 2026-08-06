@@ -2695,6 +2695,62 @@ ONEDRIVE_SHAREPOINT_TENANT_ID = PersistentConfig(
     os.environ.get('ONEDRIVE_SHAREPOINT_TENANT_ID', ''),
 )
 
+####################################
+# Microsoft Teams / Outlook / Calendar Integration
+####################################
+
+ENABLE_MICROSOFT_TEAMS_INTEGRATION = PersistentConfig(
+    'ENABLE_MICROSOFT_TEAMS_INTEGRATION',
+    'integrations.microsoft_teams.enabled',
+    os.getenv('ENABLE_MICROSOFT_TEAMS_INTEGRATION', 'False').lower() == 'true',
+)
+
+MICROSOFT_TEAMS_INTEGRATION_CLIENT_ID = PersistentConfig(
+    'MICROSOFT_TEAMS_INTEGRATION_CLIENT_ID',
+    'integrations.microsoft_teams.client_id',
+    os.environ.get('MICROSOFT_TEAMS_INTEGRATION_CLIENT_ID', ''),
+)
+
+MICROSOFT_TEAMS_INTEGRATION_CLIENT_SECRET = PersistentConfig(
+    'MICROSOFT_TEAMS_INTEGRATION_CLIENT_SECRET',
+    'integrations.microsoft_teams.client_secret',
+    os.environ.get('MICROSOFT_TEAMS_INTEGRATION_CLIENT_SECRET', ''),
+)
+
+MICROSOFT_TEAMS_INTEGRATION_TENANT_ID = PersistentConfig(
+    'MICROSOFT_TEAMS_INTEGRATION_TENANT_ID',
+    'integrations.microsoft_teams.tenant_id',
+    os.environ.get('MICROSOFT_TEAMS_INTEGRATION_TENANT_ID', 'common'),
+)
+
+####################################
+# Slack Integration
+####################################
+
+ENABLE_SLACK_INTEGRATION = PersistentConfig(
+    'ENABLE_SLACK_INTEGRATION',
+    'integrations.slack.enabled',
+    os.getenv('ENABLE_SLACK_INTEGRATION', 'False').lower() == 'true',
+)
+
+SLACK_INTEGRATION_CLIENT_ID = PersistentConfig(
+    'SLACK_INTEGRATION_CLIENT_ID',
+    'integrations.slack.client_id',
+    os.environ.get('SLACK_INTEGRATION_CLIENT_ID', ''),
+)
+
+SLACK_INTEGRATION_CLIENT_SECRET = PersistentConfig(
+    'SLACK_INTEGRATION_CLIENT_SECRET',
+    'integrations.slack.client_secret',
+    os.environ.get('SLACK_INTEGRATION_CLIENT_SECRET', ''),
+)
+
+ENABLE_WORK_IQ_INTEGRATION = PersistentConfig(
+    'ENABLE_WORK_IQ_INTEGRATION',
+    'integrations.work_iq.enabled',
+    os.getenv('ENABLE_WORK_IQ_INTEGRATION', 'False').lower() == 'true',
+)
+
 # RAG Content Extraction
 CONTENT_EXTRACTION_ENGINE = PersistentConfig(
     'CONTENT_EXTRACTION_ENGINE',

@@ -30,7 +30,66 @@
 		setTerminalServerConnections
 	} from '$lib/apis/configs';
 
+	import { getTeamIntegrationsConfig, setTeamIntegrationsConfig } from '$lib/apis/integrations';
+
 	export let saveSettings: Function;
+
+	// ── Team Integrations ─────────────────────────────────────────────────────
+	let microsoftEnabled = false;
+	let microsoftClientId = '';
+	let microsoftClientSecret = '';
+	let microsoftTenantId = 'common';
+
+	let slackEnabled = false;
+	let slackClientId = '';
+	let slackClientSecret = '';
+
+	let workIqEnabled = false;
+
+	let teamIntegrationsSaving = false;
+
+	const loadTeamIntegrationsConfig = async () => {
+		const config = await getTeamIntegrationsConfig(localStorage.token);
+		if (config) {
+			microsoftEnabled = config.microsoft?.ENABLE_MICROSOFT_TEAMS_INTEGRATION ?? false;
+			microsoftClientId = config.microsoft?.MICROSOFT_TEAMS_INTEGRATION_CLIENT_ID ?? '';
+			microsoftClientSecret = config.microsoft?.MICROSOFT_TEAMS_INTEGRATION_CLIENT_SECRET ?? '';
+			microsoftTenantId = config.microsoft?.MICROSOFT_TEAMS_INTEGRATION_TENANT_ID ?? 'common';
+
+			slackEnabled = config.slack?.ENABLE_SLACK_INTEGRATION ?? false;
+			slackClientId = config.slack?.SLACK_INTEGRATION_CLIENT_ID ?? '';
+			slackClientSecret = config.slack?.SLACK_INTEGRATION_CLIENT_SECRET ?? '';
+
+			workIqEnabled = config.work_iq?.ENABLE_WORK_IQ_INTEGRATION ?? false;
+		}
+	};
+
+	const saveTeamIntegrationsConfig = async () => {
+		teamIntegrationsSaving = true;
+		const res = await setTeamIntegrationsConfig(localStorage.token, {
+			microsoft: {
+				ENABLE_MICROSOFT_TEAMS_INTEGRATION: microsoftEnabled,
+				MICROSOFT_TEAMS_INTEGRATION_CLIENT_ID: microsoftClientId,
+				MICROSOFT_TEAMS_INTEGRATION_CLIENT_SECRET: microsoftClientSecret,
+				MICROSOFT_TEAMS_INTEGRATION_TENANT_ID: microsoftTenantId
+			},
+			slack: {
+				ENABLE_SLACK_INTEGRATION: slackEnabled,
+				SLACK_INTEGRATION_CLIENT_ID: slackClientId,
+				SLACK_INTEGRATION_CLIENT_SECRET: slackClientSecret
+			},
+			work_iq: {
+				ENABLE_WORK_IQ_INTEGRATION: workIqEnabled
+			}
+		});
+		teamIntegrationsSaving = false;
+
+		if (res) {
+			toast.success($i18n.t('Team integrations saved successfully'));
+		} else {
+			toast.error($i18n.t('Failed to save team integrations'));
+		}
+	};
 
 	let servers = null;
 	let showConnectionModal = false;
@@ -113,6 +172,8 @@
 		} catch {
 			// Not configured yet
 		}
+
+		await loadTeamIntegrationsConfig();
 	});
 </script>
 
@@ -309,6 +370,157 @@
 				</div>
 			</div>
 		{/if}
+
+		<!-- Team Integrations Section -->
+		<div class="mt-6">
+			<div class="mt-0.5 mb-2.5 text-base font-medium">{$i18n.t('Team Integrations')}</div>
+			<hr class="border-gray-100/30 dark:border-gray-850/30 my-2" />
+
+			<!-- Microsoft Teams / Outlook / Calendar -->
+			<div class="mb-5">
+				<div class="flex items-center justify-between mb-3">
+					<div class="flex items-center gap-2">
+						<svg class="size-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+							<path d="M11.5 2L2 7v10l9.5 5 9.5-5V7L11.5 2z" fill="#5059C9"/>
+							<path d="M13 7.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z" fill="#7B83EB"/>
+							<path d="M21.5 9h-7A1.5 1.5 0 0 0 13 10.5v6.75A4.75 4.75 0 0 0 17.75 22 4.75 4.75 0 0 0 22.5 17.25V10.5A1.5 1.5 0 0 0 21.5 9z" fill="#7B83EB"/>
+						</svg>
+						<div class="font-medium">{$i18n.t('Microsoft Teams, Outlook & Calendar')}</div>
+					</div>
+					<Switch
+						state={microsoftEnabled}
+						on:change={() => (microsoftEnabled = !microsoftEnabled)}
+					/>
+				</div>
+
+				{#if microsoftEnabled}
+					<div class="flex flex-col gap-2 pl-2">
+						<div>
+							<div class="text-xs text-gray-500 mb-1">{$i18n.t('Azure App Client ID')}</div>
+							<input
+								class="w-full text-sm bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 outline-none focus:border-blue-500"
+								type="text"
+								placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+								bind:value={microsoftClientId}
+							/>
+						</div>
+						<div>
+							<div class="text-xs text-gray-500 mb-1">{$i18n.t('Azure App Client Secret')}</div>
+							<SensitiveInput
+								placeholder={$i18n.t('Enter client secret')}
+								bind:value={microsoftClientSecret}
+							/>
+						</div>
+						<div>
+							<div class="text-xs text-gray-500 mb-1">
+								{$i18n.t('Tenant ID')}
+								<span class="text-gray-400">({$i18n.t('use "common" for multi-tenant')})</span>
+							</div>
+							<input
+								class="w-full text-sm bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 outline-none focus:border-blue-500"
+								type="text"
+								placeholder="common"
+								bind:value={microsoftTenantId}
+							/>
+						</div>
+						<div class="text-xs text-gray-400 mt-1">
+							{$i18n.t(
+								'Register an Azure App with Mail.Read, Mail.Send, Calendars.ReadWrite, ChannelMessage.Send, and Chat.ReadWrite scopes. Set the redirect URI to: {url}',
+								{ url: `${window.location.origin}/api/v1/integrations/microsoft/callback` }
+							)}
+						</div>
+					</div>
+				{/if}
+			</div>
+
+			<!-- Microsoft Work IQ -->
+			<div class="mb-5">
+				<div class="flex items-center justify-between mb-3">
+					<div class="flex items-center gap-2">
+						<svg class="size-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+							<rect width="24" height="24" rx="4" fill="#0078D4"/>
+							<path d="M6 8h5v8H6zM13 8h5v3.5h-5zM13 13.5h5V17h-5z" fill="white"/>
+						</svg>
+						<div class="font-medium">{$i18n.t('Microsoft Work IQ')}</div>
+					</div>
+					<Switch
+						state={workIqEnabled}
+						on:change={() => (workIqEnabled = !workIqEnabled)}
+					/>
+				</div>
+
+				{#if workIqEnabled}
+					<div class="flex flex-col gap-2 pl-2">
+						<div class="text-xs text-gray-500 leading-relaxed">
+							{$i18n.t('Work IQ provides AI-powered natural language queries over all Microsoft 365 data (email, calendar, Teams, SharePoint, OneDrive). Tokens are fetched automatically when users connect their Microsoft account.')}
+						</div>
+						<div class="text-xs bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-2 text-amber-800 dark:text-amber-200">
+							<strong>{$i18n.t('Requirements:')}</strong>
+							<ul class="list-disc ml-4 mt-1 space-y-0.5">
+								<li>{$i18n.t('Microsoft 365 Copilot license per user')}</li>
+								<li>{$i18n.t('WorkIQAgent.Ask delegated permission granted in the same Entra app registration (app ID: fdcc1f02-fc51-4226-8753-f668596af7f7)')}</li>
+								<li>{$i18n.t('Admin consent required for tenant')}</li>
+								<li>{$i18n.t('Users must reconnect their Microsoft account after enabling')}</li>
+							</ul>
+						</div>
+					</div>
+				{/if}
+			</div>
+
+			<!-- Slack -->
+			<div class="mb-3">
+				<div class="flex items-center justify-between mb-3">
+					<div class="flex items-center gap-2">
+						<svg class="size-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+							<path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z" fill="#E01E5A"/>
+						</svg>
+						<div class="font-medium">{$i18n.t('Slack')}</div>
+					</div>
+					<Switch
+						state={slackEnabled}
+						on:change={() => (slackEnabled = !slackEnabled)}
+					/>
+				</div>
+
+				{#if slackEnabled}
+					<div class="flex flex-col gap-2 pl-2">
+						<div>
+							<div class="text-xs text-gray-500 mb-1">{$i18n.t('Slack App Client ID')}</div>
+							<input
+								class="w-full text-sm bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 outline-none focus:border-blue-500"
+								type="text"
+								placeholder="xxxxxxxxxxxx.xxxxxxxxxxxx"
+								bind:value={slackClientId}
+							/>
+						</div>
+						<div>
+							<div class="text-xs text-gray-500 mb-1">{$i18n.t('Slack App Client Secret')}</div>
+							<SensitiveInput
+								placeholder={$i18n.t('Enter client secret')}
+								bind:value={slackClientSecret}
+							/>
+						</div>
+						<div class="text-xs text-gray-400 mt-1">
+							{$i18n.t(
+								'Create a Slack App with channels:read, channels:history, chat:write, and search:read scopes. Set the redirect URI to: {url}',
+								{ url: `${window.location.origin}/api/v1/integrations/slack/callback` }
+							)}
+						</div>
+					</div>
+				{/if}
+			</div>
+
+			<div class="flex justify-end mt-4">
+				<button
+					class="px-3.5 py-1.5 text-sm font-medium bg-black hover:bg-gray-900 text-white dark:bg-white dark:text-black dark:hover:bg-gray-100 transition rounded-full disabled:opacity-50"
+					type="button"
+					disabled={teamIntegrationsSaving}
+					on:click={saveTeamIntegrationsConfig}
+				>
+					{teamIntegrationsSaving ? $i18n.t('Saving...') : $i18n.t('Save Integrations')}
+				</button>
+			</div>
+		</div>
 	</div>
 
 	<div class="flex justify-end pt-3 text-sm font-medium">

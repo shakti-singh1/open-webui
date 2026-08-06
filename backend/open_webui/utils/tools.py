@@ -102,6 +102,51 @@ from open_webui.tools.builtin import (
     update_calendar_event,
     delete_calendar_event,
 )
+from open_webui.tools.microsoft_integration import (
+    get_outlook_emails,
+    read_outlook_email,
+    send_outlook_email,
+    list_mailbox_folders,
+    get_shared_mailbox_emails,
+    get_outlook_calendar_events,
+    create_outlook_calendar_event,
+    list_calendars,
+    get_shared_calendar_events,
+    get_user_availability,
+    list_teams,
+    get_teams_channels,
+    send_teams_message,
+    get_teams_channel_messages,
+    list_teams_chats,
+    get_teams_chat_messages,
+    get_chat_members,
+    find_org_users,
+)
+from open_webui.tools.slack_integration import (
+    list_slack_channels,
+    get_slack_channel_history,
+    send_slack_message,
+    search_slack_messages,
+    send_slack_dm,
+)
+from open_webui.tools.onedrive_sharepoint import (
+    list_onedrive_files,
+    search_onedrive,
+    read_onedrive_file,
+    get_onedrive_file_link,
+    list_sharepoint_sites,
+    search_sharepoint,
+    list_sharepoint_site_files,
+    read_sharepoint_file,
+    get_sharepoint_list_items,
+)
+from open_webui.tools.teams_meetings import (
+    find_teams_meeting,
+    get_teams_meeting_transcript,
+    get_meeting_recordings,
+    get_meeting_ai_insights,
+)
+from open_webui.tools.work_iq import query_work_iq
 
 from open_webui.utils.access_control import has_permission
 
@@ -574,6 +619,91 @@ async def get_builtin_tools(
         builtin_functions.extend(
             [search_calendar_events, create_calendar_event, update_calendar_event, delete_calendar_event]
         )
+
+    # Microsoft Teams / Outlook / Calendar integration tools
+    # Auto-enabled when admin has configured the integration AND user has connected their account
+    if (
+        is_builtin_tool_enabled('microsoft_integration')
+        and getattr(request.app.state.config, 'ENABLE_MICROSOFT_TEAMS_INTEGRATION', False)
+    ):
+        from open_webui.models.oauth_sessions import OAuthSessions as _OAuthSessions
+        _ms_session = await _OAuthSessions.get_session_by_provider_and_user_id(
+            'microsoft_teams_integration', user.get('id', '')
+        )
+        if _ms_session:
+            builtin_functions.extend([
+                # Email
+                get_outlook_emails,
+                read_outlook_email,
+                send_outlook_email,
+                list_mailbox_folders,
+                get_shared_mailbox_emails,
+                # Calendar
+                get_outlook_calendar_events,
+                create_outlook_calendar_event,
+                list_calendars,
+                get_shared_calendar_events,
+                # Scheduling
+                get_user_availability,
+                # Teams channels
+                list_teams,
+                get_teams_channels,
+                send_teams_message,
+                get_teams_channel_messages,
+                # Teams chats
+                list_teams_chats,
+                get_teams_chat_messages,
+                get_chat_members,
+                # Meetings
+                find_teams_meeting,
+                get_teams_meeting_transcript,
+                get_meeting_recordings,
+                get_meeting_ai_insights,
+                # OneDrive & SharePoint
+                list_onedrive_files,
+                search_onedrive,
+                read_onedrive_file,
+                get_onedrive_file_link,
+                list_sharepoint_sites,
+                search_sharepoint,
+                list_sharepoint_site_files,
+                read_sharepoint_file,
+                get_sharepoint_list_items,
+                # User directory
+                find_org_users,
+            ])
+
+    # Slack integration tools
+    # Auto-enabled when admin has configured the integration AND user has connected their workspace
+    if (
+        is_builtin_tool_enabled('slack_integration')
+        and getattr(request.app.state.config, 'ENABLE_SLACK_INTEGRATION', False)
+    ):
+        from open_webui.models.oauth_sessions import OAuthSessions as _OAuthSessions2
+        _slack_session = await _OAuthSessions2.get_session_by_provider_and_user_id(
+            'slack_integration', user.get('id', '')
+        )
+        if _slack_session:
+            builtin_functions.extend([
+                list_slack_channels,
+                get_slack_channel_history,
+                send_slack_message,
+                search_slack_messages,
+                send_slack_dm,
+            ])
+
+    # Work IQ integration — natural language queries over all Microsoft 365 data
+    # Auto-enabled when admin has configured it AND user's Microsoft connect fetched the Work IQ token
+    if (
+        is_builtin_tool_enabled('work_iq_integration')
+        and getattr(request.app.state.config, 'ENABLE_WORK_IQ_INTEGRATION', False)
+    ):
+        from open_webui.models.oauth_sessions import OAuthSessions as _WIQSessions
+        _wiq_session = await _WIQSessions.get_session_by_provider_and_user_id(
+            'workiq_integration', user.get('id', '')
+        )
+        if _wiq_session:
+            builtin_functions.append(query_work_iq)
 
     for func in builtin_functions:
         callable = await get_async_tool_function_and_apply_extra_params(
