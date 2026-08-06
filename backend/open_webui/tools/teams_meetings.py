@@ -47,7 +47,8 @@ async def _get_valid_token(request: Request, user_id: str) -> Optional[str]:
     session = await OAuthSessions.get_session_by_provider_and_user_id(MICROSOFT_PROVIDER, user_id)
     if not session:
         return None
-    if session.expires_at - int(time.time()) < 300:
+    access_expires = session.token.get('access_token_expires_at', session.expires_at)
+    if access_expires - int(time.time()) < 300:
         updated = await refresh_microsoft_token(request.app.state.config, session)
         return updated.get('access_token') if updated else None
     return session.token.get('access_token')

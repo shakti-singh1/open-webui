@@ -239,12 +239,16 @@ async def microsoft_callback(request: Request, code: Optional[str] = None, state
                         'id': profile.get('id', ''),
                     }
 
+    access_token_expires_at = int(time.time()) + int(token_data.get('expires_in', 3600))
     token_to_store = {
         'access_token': token_data.get('access_token', ''),
         'refresh_token': token_data.get('refresh_token', ''),
         'token_type': token_data.get('token_type', 'Bearer'),
         'scope': token_data.get('scope', ''),
-        'expires_at': int(time.time()) + int(token_data.get('expires_in', 3600)),
+        # access_token_expires_at: actual 1-hour access-token window (used by tools to decide when to refresh)
+        'access_token_expires_at': access_token_expires_at,
+        # expires_at: reflects refresh-token lifetime (~90 days); this is what create_session writes to DB
+        'expires_at': int(time.time()) + (90 * 24 * 3600),
         'account': account_info,
     }
 
@@ -334,7 +338,8 @@ async def refresh_microsoft_token(config, session) -> Optional[dict]:
             **session.token,
             'access_token': new_token_data.get('access_token', ''),
             'refresh_token': new_token_data.get('refresh_token', refresh_token),
-            'expires_at': int(time.time()) + int(new_token_data.get('expires_in', 3600)),
+            # Update the 1-hour access-token window; preserve the 90-day expires_at from the original session
+            'access_token_expires_at': int(time.time()) + int(new_token_data.get('expires_in', 3600)),
         }
         await OAuthSessions.update_session_by_id(session.id, updated)
         return updated
@@ -379,7 +384,8 @@ async def _fetch_work_iq_token(config, refresh_token: str) -> Optional[dict]:
             'access_token': data.get('access_token', ''),
             'refresh_token': data.get('refresh_token', refresh_token),
             'token_type': 'Bearer',
-            'expires_at': int(time.time()) + int(data.get('expires_in', 3600)),
+            'access_token_expires_at': int(time.time()) + int(data.get('expires_in', 3600)),
+            'expires_at': int(time.time()) + (90 * 24 * 3600),
         }
     except Exception as e:
         log.debug(f'Work IQ token exchange error: {e}')
@@ -394,6 +400,8 @@ async def refresh_work_iq_token(config, session) -> Optional[dict]:
 
     updated = await _fetch_work_iq_token(config, refresh_token)
     if updated:
+        # Preserve the original 90-day session expires_at; only access_token_expires_at changes
+        updated['expires_at'] = session.token.get('expires_at', updated['expires_at'])
         await OAuthSessions.update_session_by_id(session.id, updated)
     return updated
 

@@ -37,8 +37,10 @@ async def _get_valid_token(request: Request, user_id: str) -> Optional[str]:
     if not session:
         return None
 
-    # Refresh if expiring within 5 minutes
-    if session.expires_at - int(time.time()) < 300:
+    # Refresh if the access token is expiring within 5 minutes
+    # access_token_expires_at tracks the 1-hour window; expires_at is the 90-day refresh-token lifetime
+    access_expires = session.token.get('access_token_expires_at', session.expires_at)
+    if access_expires - int(time.time()) < 300:
         updated = await refresh_microsoft_token(request.app.state.config, session)
         if updated:
             return updated.get('access_token')

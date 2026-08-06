@@ -45,7 +45,8 @@ async def _get_work_iq_token(request: Request, user_id: str) -> Optional[str]:
     if not session:
         return None
 
-    if session.expires_at - int(time.time()) < 300:
+    access_expires = session.token.get('access_token_expires_at', session.expires_at)
+    if access_expires - int(time.time()) < 300:
         updated = await refresh_work_iq_token(request.app.state.config, session)
         return updated.get('access_token') if updated else None
 
